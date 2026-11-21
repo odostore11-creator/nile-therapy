@@ -100,7 +100,11 @@ function setupDictation(micBtn, langBtn, input) {
     };
     rec.onerror = e => {
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') toast(t('voice.denied'));
-      else if (e.error !== 'no-speech' && e.error !== 'aborted') toast(t('voice.error'));
+      else if (e.error === 'network') toast(t('voice.network'));
+      else if (e.error === 'audio-capture') toast(t('voice.noMic'));
+      else if (e.error === 'language-not-supported') toast(t('voice.noLang'));
+      else if (e.error === 'no-speech') toast(t('voice.noSpeech'));
+      else if (e.error !== 'aborted') toast(`${t('voice.error')} (${e.error})`);
     };
     rec.onend = () => { rec = null; setOn(false); input.focus(); };
     try { rec.start(); setOn(true); } catch { rec = null; toast(t('voice.error')); }

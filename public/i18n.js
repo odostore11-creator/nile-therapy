@@ -196,6 +196,10 @@ const STRINGS = {
     'voice.langAr': 'Dictation language: Arabic (click for English)', 'voice.langEn': 'Dictation language: English (click for Arabic)',
     'voice.denied': 'The browser blocked the microphone. Allow microphone access for this site and try again.',
     'voice.error': 'Dictation stopped. Please try again.',
+    'voice.network': "This browser's speech service isn't available. Use Google Chrome, or your phone keyboard's 🎤 key.",
+    'voice.noMic': 'No microphone was found. Check that one is connected and allowed.',
+    'voice.noLang': "This browser can't dictate in this language. Try the other language or Google Chrome.",
+    'voice.noSpeech': "I didn't hear anything. Press 🎤 and start speaking.",
   },
 
   ar: {
@@ -390,6 +394,10 @@ const STRINGS = {
     'voice.langAr': 'لغة الإملاء: العربية (اضغط للإنجليزية)', 'voice.langEn': 'لغة الإملاء: الإنجليزية (اضغط للعربية)',
     'voice.denied': 'المتصفح منع الميكروفون. اسمح لهذا الموقع باستخدام الميكروفون وحاول مرة أخرى.',
     'voice.error': 'توقف الإملاء. حاول مرة أخرى.',
+    'voice.network': 'خدمة تحويل الكلام في هذا المتصفح غير متاحة. استخدم Google Chrome، أو زر 🎤 في لوحة مفاتيح الهاتف.',
+    'voice.noMic': 'لم يتم العثور على ميكروفون. تأكد من توصيله والسماح به.',
+    'voice.noLang': 'هذا المتصفح لا يدعم الإملاء بهذه اللغة. جرّب اللغة الأخرى أو Google Chrome.',
+    'voice.noSpeech': 'لم أسمع شيئاً. اضغط 🎤 وابدأ الكلام.',
   },
 };
 
