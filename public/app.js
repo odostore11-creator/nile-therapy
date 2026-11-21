@@ -105,7 +105,7 @@ function shell(active, renderPage) {
   wireLangButtons();
   document.getElementById('out').onclick = async () => {
     if (!await confirmAction({ title: t('confirm.logout'), confirm: t('me.logout') })) return;
-    state.user = null; location.hash = ''; await sb.auth.signOut(); render();
+    state.user = null; location.hash = ''; await sb.auth.signOut({ scope: 'local' }); render(); // only this device
   };
   document.getElementById('pw').onclick = passwordModal;
   renderPage(document.getElementById('main'));

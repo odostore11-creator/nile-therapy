@@ -38,19 +38,35 @@ function friendly(e) {
 function check({ data, error }) { if (error) throw new Error(friendly(error)); return data; }
 const loginEmail = username => `${String(username || '').trim().toLowerCase()}@${CFG.loginEmailDomain}`;
 
-async function callFunction(name, body) {
+async function callFunction(name, body, retried = false) {
   const { data, error } = await sb.functions.invoke(name, { body });
   if (!error) return data;
+  if (error.context?.status === 401) {
+    // The server no longer accepts this login (expired, or ended on the server). Renew it once and
+    // retry; if that fails too, go back to the login page instead of leaving the user stuck.
+    if (!retried && !(await sb.auth.refreshSession()).error) return callFunction(name, body, true);
+    await sessionEnded();
+    throw new Error(t('err.login'));
+  }
   let msg = error.message;
   try { const j = await error.context.json(); msg = j.error || j.message || msg; } catch { /* not JSON */ }
   if (error.context?.status === 404) msg = t('err.fnMissing');
   throw new Error(friendly({ message: msg }));
 }
 
+/** Called when the server says the login is no longer valid: forget it here and show the login page. */
+async function sessionEnded() {
+  await sb.auth.signOut({ scope: 'local' }).catch(() => {});
+  if (state.user) { state.user = null; location.hash = ''; render(); setTimeout(() => toast(t('err.login')), 50); }
+}
+
 async function loadMe() {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) return null;
-  const me = check(await sb.from('profiles').select('*').eq('id', session.user.id).maybeSingle());
+  // Ask the server whether this login is still valid (it may have been ended on another device).
+  const { data: { user }, error } = await sb.auth.getUser();
+  if (error || !user) { await sb.auth.signOut({ scope: 'local' }).catch(() => {}); return null; }
+  const me = check(await sb.from('profiles').select('*').eq('id', user.id).maybeSingle());
   if (!me || !me.active) { await sb.auth.signOut(); return null; }
   return me;
 }
