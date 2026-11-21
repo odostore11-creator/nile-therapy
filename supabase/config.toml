@@ -1,0 +1,8 @@
+# Edge Function settings (used by the Supabase CLI; the same values were set when deploying).
+# verify_jwt is off because these functions check the login token themselves
+# (Supabase's built-in check doesn't understand the new API keys).
+[functions.admin-doctors]
+verify_jwt = false
+
+[functions.ai-chat]
+verify_jwt = false
