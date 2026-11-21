@@ -624,7 +624,10 @@ function actionCard(a) {
     if (/_date$/.test(k)) return fmtDate(v);
     return esc(v);
   };
-  const rows = Object.keys(after).filter(k => k !== 'doctor_id').map(k => `<tr><th>${t('field.' + k)}</th><td dir="auto">${
+  const ORDER = ['doctor_name', 'patient_name', 'session_date', 'appt_date', 'session_time', 'appt_time', 'session_type', 'location',
+    'duration_min', 'status', 'full_name', 'title', 'specialty', 'phone', 'area', 'bio', 'active', 'notes'];
+  const rank = k => (ORDER.includes(k) ? ORDER.indexOf(k) : 99);
+  const rows = Object.keys(after).filter(k => k !== 'doctor_id').sort((a, b) => rank(a) - rank(b)).map(k => `<tr><th>${t('field.' + k)}</th><td dir="auto">${
     k in before ? `<s>${show(k, before[k])}</s> → ` : ''}<b>${show(k, after[k])}</b></td></tr>`).join('');
   const foot = a.status === 'pending'
     ? `<div class="act-buttons"><button type="button" class="btn sm" data-act="confirm" data-id="${a.id}">${t('act.confirm')}</button><button type="button" class="btn ghost sm" data-act="reject" data-id="${a.id}">${t('common.cancel')}</button></div>`
