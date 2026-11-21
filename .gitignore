@@ -4,3 +4,7 @@ data/
 
 # Private planning notes (names, business details) stay off the public repo
 CLAUDE.md
+
+# Generated test passwords from supabase/seed.sql
+*.local.txt
+supabase/.temp/
