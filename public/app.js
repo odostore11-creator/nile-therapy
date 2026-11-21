@@ -90,16 +90,24 @@ function shell(active, renderPage) {
   $app.innerHTML = `
   <div class="shell">
     <aside class="side">
-      <div class="brand"><span class="brand-mark"><img src="logo-mark.png" alt="" width="40" height="40"></span> Nile Therapy</div>
+      <div class="side-top">
+        <div class="brand"><span class="brand-mark"><img src="logo-mark.png" alt="" width="40" height="40"></span> <span class="brand-name">Nile Therapy</span></div>
+        <span class="m-title">${esc((nav.find(n => n[0] === active) || nav[0])[1])}</span>
+        <button type="button" class="menu-btn" id="menu" aria-expanded="false" aria-controls="sidemenu" aria-label="${esc(t('nav.menu'))}">☰</button>
+      </div>
+      <div class="side-menu" id="sidemenu">
       <nav class="nav-list">${nav.map(([k, label, ic]) => `<a class="nav ${active === k ? 'on' : ''}" href="#/${k}" ${active === k ? 'aria-current="page"' : ''}>${ic}${label}</a>`).join('')}</nav>
       <div class="spacer"></div>
       <div class="me">
         <strong dir="auto">${esc(u.full_name)}</strong><span class="muted" dir="auto">${esc(u.title || t(u.role === 'admin' ? 'role.founder' : 'role.doctor'))}</span>
         <div class="row"><button id="pw">${t('me.password')}</button><button id="out">${t('me.logout')}</button>${langButton()}<button id="install" hidden>${t('install.btn')}</button></div>
       </div>
+      </div>
     </aside>
     <main class="main"><div id="tip"></div><div id="main"></div></main>
   </div>`;
+  const side = $app.querySelector('.side'), menuBtn = document.getElementById('menu');
+  menuBtn.onclick = () => { const open = side.classList.toggle('open'); menuBtn.setAttribute('aria-expanded', open); menuBtn.textContent = open ? '✕' : '☰'; };
   showInstallTip();
   wireInstall();
   wireLangButtons();

@@ -44,7 +44,7 @@ async function chatPage(main) {
   const ai = state.ai;
   const first = state.user.full_name.replace(/^(Dr\.?|د\.)\s*/i, '').split(' ')[0];
   main.innerHTML = `
-    <div class="head"><div><h1>${t('chat.title')}</h1><p class="muted">${esc(t('chat.sub', { name: first }))}</p></div></div>
+    <div class="head chat-page-head"><div><h1>${t('chat.title')}</h1><p class="muted">${esc(t('chat.sub', { name: first }))}</p></div></div>
     <div class="chat-wrap">
       <section class="card chat">
         <div class="chat-head">
