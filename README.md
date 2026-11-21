@@ -9,7 +9,16 @@ Internal website for Nile Therapy:
   - **Doctors.** Profile cards for each doctor. A doctor's page shows their info, session count, patients and history. From here founders add a doctor (the password is generated for them), edit a profile, turn an account off, or reset a password.
   - **My AI room.** Each founder has a private chat with Claude. The other founders can't see it. The AI sees the live sessions and doctors data and keeps a **memory** of each founder that is used in every chat. The founder can see and delete what it remembers.
 
-## Run it
+## New version (in progress): GitHub Pages + Supabase
+
+- **Live site:** https://odostore11-creator.github.io/nile-therapy/ . Every push to `main` that changes `public/` republishes it automatically (`.github/workflows/pages.yml`).
+- **Data and logins:** Supabase. The tables and permission rules are in `supabase/migrations/`, test data is in `supabase/seed.sql`, and the permission check is `supabase/tests/rls_check.sql`.
+- **Preview on your computer:** `node scripts/serve.mjs`, then open http://localhost:5500/nile-therapy/
+- **Not done yet:** adding a doctor, resetting a password and the AI chat need Supabase Edge Functions (next step).
+
+The sections below describe the original v0.1 (`server.js`), which is kept as the reference until the new version matches it.
+
+## Run it (v0.1)
 
 Needs **Node.js 22.5 or newer**. That's all: there are no packages to install.
 
