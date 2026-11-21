@@ -25,6 +25,9 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      # Stamp this deploy's version on our CSS/JS links so browsers never mix old and new files.
+      - name: Stamp file versions
+        run: sed -i "s/?v=dev/?v=${GITHUB_SHA::7}/g" public/index.html && grep -c "?v=${GITHUB_SHA::7}" public/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
