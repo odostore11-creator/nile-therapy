@@ -21,6 +21,52 @@ const TOOLS = [{
   input_schema: { type: 'object', properties: { content: { type: 'string', description: 'One short sentence to remember.' } }, required: ['content'] },
 }, ...ACTION_TOOLS];
 
+// ---------- attached files ----------
+type Attachment = { path: string; name: string; type: string; size: number };
+const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+const TEXT_TYPES = ['text/plain', 'text/csv', 'text/markdown'];
+const FILE_TYPES = [...IMAGE_TYPES, 'application/pdf', ...TEXT_TYPES];
+const MAX_FILE = 10 * 1024 * 1024, MAX_IMAGE = 5 * 1024 * 1024; // Claude accepts images up to 5 MB
+const FILES_IN_CONTEXT = 3; // the files of the last 3 messages with attachments are re-sent so follow-up questions work
+
+/** Checks what the browser says it uploaded: it must be in this founder's own folder. */
+function cleanAttachments(founderId: string, raw: unknown): Attachment[] {
+  if (!Array.isArray(raw)) return [];
+  if (raw.length > 5) throw new HttpError(400, 'At most 5 files per message');
+  return raw.map((a: Record<string, unknown>) => {
+    const path = str(a.path, 300), name = str(a.name, 200) || 'file', type = str(a.type, 60), size = Number(a.size) || 0;
+    if (!path.startsWith(founderId + '/') || path.includes('..')) throw new HttpError(400, 'Bad file');
+    if (!FILE_TYPES.includes(type)) throw new HttpError(400, 'This file type is not supported');
+    if (size > (IMAGE_TYPES.includes(type) ? MAX_IMAGE : MAX_FILE)) throw new HttpError(400, 'File is too large');
+    return { path, name, type, size };
+  });
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+/** Turns stored files into Claude content blocks (image / PDF document / plain text). */
+async function fileBlocks(files: Attachment[]) {
+  const blocks: unknown[] = [];
+  for (const f of files) {
+    const { data, error } = await admin.storage.from('chat-files').download(f.path);
+    if (error || !data) { blocks.push({ type: 'text', text: `[The file "${f.name}" could not be opened.]` }); continue; }
+    const bytes = new Uint8Array(await data.arrayBuffer());
+    if (IMAGE_TYPES.includes(f.type)) {
+      blocks.push({ type: 'text', text: `Attached image: ${f.name}` });
+      blocks.push({ type: 'image', source: { type: 'base64', media_type: f.type, data: toBase64(bytes) } });
+    } else if (f.type === 'application/pdf') {
+      blocks.push({ type: 'document', title: f.name, source: { type: 'base64', media_type: 'application/pdf', data: toBase64(bytes) } });
+    } else {
+      blocks.push({ type: 'text', text: `Attached file "${f.name}":\n\n${new TextDecoder().decode(bytes).slice(0, 150000)}` });
+    }
+  }
+  return blocks;
+}
+
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86400000);
 function must<T>(r: { data: T | null; error: unknown }): T {
@@ -56,6 +102,7 @@ Nile Therapy is an Egyptian physiotherapy (العلاج الطبيعي) agency r
 
 You are talking with ${founder.full_name} (${founder.title || 'founder'}). This chat room is private to them. Today is ${weekday} ${isoDay(now)} (Cairo). In Egypt the work week starts on Saturday.
 Be a practical partner for management, planning, analysis and brainstorming. Reply in the language the founder writes in (Arabic or English). Be concise and concrete. When you use numbers, base them on the data below and say if the data is incomplete. Never invent sessions, visits or doctors.
+The founder can attach images (e.g. photos of paper notes, receipts, screenshots), PDFs and text/CSV files, and may dictate messages by voice (so expect small transcription mistakes). Read attached files carefully; if one is unclear, say what you could and couldn't read. If a file contains sessions or visits the founder wants entered, propose them with the action tools.
 
 ## Taking actions
 When the founder asks you to change something, use the tools: add_session, update_session, book_appointment, update_appointment (also to cancel a visit), update_doctor.
@@ -97,10 +144,21 @@ async function saveProposal(founderId: string, p: Proposal): Promise<number> {
 }
 
 async function callClaude(founder: Profile, model: string) {
-  const history = must(await admin.from('chat_messages').select('role, content').eq('founder_id', founder.id)
-    .order('id', { ascending: false }).limit(40)).reverse() as { role: string; content: unknown }[];
+  const history = must(await admin.from('chat_messages').select('role, content, attachments').eq('founder_id', founder.id)
+    .order('id', { ascending: false }).limit(40)).reverse() as { role: string; content: string; attachments: Attachment[] }[];
   while (history.length && history[0].role !== 'user') history.shift();
-  const messages: { role: string; content: unknown }[] = history.map((m) => ({ role: m.role, content: m.content }));
+  // Re-send the actual files only for the most recent messages that had some; older ones get a short note.
+  const withFiles = history.map((m, i) => (m.attachments?.length ? i : -1)).filter(i => i >= 0);
+  const sendFilesFor = new Set(withFiles.slice(-FILES_IN_CONTEXT));
+  const messages: { role: string; content: unknown }[] = [];
+  for (const [i, m] of history.entries()) {
+    if (!m.attachments?.length) { messages.push({ role: m.role, content: m.content }); continue; }
+    if (sendFilesFor.has(i)) {
+      messages.push({ role: m.role, content: [...await fileBlocks(m.attachments), { type: 'text', text: m.content || '(see the attached files)' }] });
+    } else {
+      messages.push({ role: m.role, content: `${m.content}\n\n[Files shared earlier, no longer shown: ${m.attachments.map(a => a.name).join(', ')}. Ask the founder to attach them again if needed.]` });
+    }
+  }
   const system = await buildSystemPrompt(founder);
   const saved: string[] = [];
   const proposed: number[] = [];
@@ -142,7 +200,7 @@ async function callClaude(founder: Profile, model: string) {
   return { text: '(stopped after too many tool calls)', saved, proposed };
 }
 
-async function placeholderReply(founder: Profile, message: string) {
+async function placeholderReply(founder: Profile, message: string, files: Attachment[] = []) {
   const month = isoDay(new Date()).slice(0, 7);
   const [{ count: sessionsThisMonth }, { count: activeDoctors }] = await Promise.all([
     admin.from('sessions').select('id', { count: 'exact', head: true }).gte('session_date', `${month}-01`),
@@ -158,6 +216,7 @@ async function placeholderReply(founder: Profile, message: string) {
   return {
     text: `**The AI isn't connected yet**: add the \`ANTHROPIC_API_KEY\` secret in Supabase (Edge Functions → Secrets).\n\n` +
       `Your chat room, history and memory are already working, though. Right now I can see **${activeDoctors ?? 0} active doctors** and **${sessionsThisMonth ?? 0} sessions** logged this month.` +
+      (files.length ? `\n\nI received ${files.length} file(s): ${files.map(f => `“${f.name}”`).join(', ')}. Once the AI is connected I'll be able to read them.` : '') +
       (saved.length ? `\n\nSaved to your memory: “${saved[0]}”` : `\n\nTip: start a message with "remember:" to test the memory panel.`),
     saved,
     proposed: [] as number[],
@@ -202,13 +261,14 @@ serve(async (req, body) => {
 
   if (body.action === 'send') {
     const message = str(body.message, 20000);
-    if (!message) throw new HttpError(400, 'Empty message');
+    const files = cleanAttachments(founder.id, body.attachments);
+    if (!message && !files.length) throw new HttpError(400, 'Empty message');
     const model = MODELS[str(body.model, 60)] ? str(body.model, 60) : DEFAULT_MODEL;
 
-    const userRow = must(await admin.from('chat_messages').insert({ founder_id: founder.id, role: 'user', content: message }).select('id').single()) as { id: number };
+    const userRow = must(await admin.from('chat_messages').insert({ founder_id: founder.id, role: 'user', content: message, attachments: files }).select('id').single()) as { id: number };
     let reply;
     try {
-      reply = connected ? await callClaude(founder, model) : await placeholderReply(founder, message);
+      reply = connected ? await callClaude(founder, model) : await placeholderReply(founder, message, files);
     } catch (e) {
       await admin.from('chat_messages').delete().eq('id', userRow.id); // don't keep a question with no answer
       throw e;

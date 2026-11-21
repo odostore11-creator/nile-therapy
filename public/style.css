@@ -302,6 +302,26 @@ tbody tr:hover { background: #f7fafd; }
   .bl-bar, .stack span, .col .bar, .legend .sw { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
+/* ---------- chat: files + voice ---------- */
+.composer-tools { display: flex; gap: 4px; align-items: center; }
+.tool-btn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: 17px; display: grid; place-items: center; padding: 0; }
+.tool-btn:hover { background: var(--water-soft); border-color: #c5d9ea; }
+.tool-btn.lang-mini { width: 32px; height: 32px; font-size: 12px; font-weight: 700; color: var(--brand); }
+.tool-btn.listening { background: var(--danger); border-color: var(--danger); box-shadow: 0 0 0 4px rgba(179, 55, 42, .18); }
+.composer-note { margin: 0; padding: 0 16px 10px; background: #f9fbfd; }
+.pending-files { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px 0; border-top: 1px solid var(--line); background: #f9fbfd; }
+.pending-files + .composer { border-top: 0; }
+.file-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 10px; font-size: 13px; color: var(--ink); }
+button.file-chip { cursor: pointer; } button.file-chip:hover:not(:disabled) { border-color: var(--brand); }
+.file-chip .fname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+.file-chip button { border: 0; background: none; cursor: pointer; font-size: 16px; line-height: 1; color: var(--muted); padding: 0 2px; }
+.file-chip button:hover { color: var(--danger); }
+.msg-files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.msg.user .file-chip { background: rgba(255, 255, 255, .15); border-color: rgba(255, 255, 255, .35); color: #fff; }
+.msg-thumb { padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: 10px; overflow: hidden; }
+.msg-thumb img { display: block; max-width: 180px; max-height: 140px; min-width: 60px; min-height: 40px; object-fit: cover; background: rgba(255, 255, 255, .2); border-radius: 10px; }
+.chat.dropping { outline: 3px dashed var(--brand); outline-offset: -6px; }
+
 /* ---------- AI action cards ---------- */
 .act-card { align-self: flex-start; max-width: 78%; border: 1px solid #c5d9ea; border-inline-start: 4px solid var(--brand); background: var(--surface); border-radius: 12px; padding: 12px 14px; font-size: 14px; margin-top: -6px; }
 .act-card.done { border-inline-start-color: var(--leaf); }

@@ -56,10 +56,18 @@ async function chatPage(main) {
         </div>
         <div class="banner" id="aibanner" hidden></div>
         <div class="msgs" id="msgs" aria-live="polite"></div>
+        <div class="pending-files" id="pending" hidden></div>
         <form class="composer" id="send">
+          <div class="composer-tools">
+            <button type="button" class="tool-btn" id="attach" title="${esc(t('files.attach'))}" aria-label="${esc(t('files.attach'))}">📎</button>
+            <button type="button" class="tool-btn" id="mic" aria-label="${esc(t('voice.start'))}">🎤</button>
+            <button type="button" class="tool-btn lang-mini" id="miclang"></button>
+          </div>
+          <input type="file" id="files" multiple accept="${CHAT_ACCEPT}" hidden>
           <textarea id="input" rows="1" dir="auto" aria-label="${esc(t('chat.send'))}" placeholder="${esc(t('chat.input.ph'))}"></textarea>
-          <button class="btn">${t('chat.send')}</button>
+          <button class="btn" id="sendbtn">${t('chat.send')}</button>
         </form>
+        <p class="composer-note muted small">${t('files.note')}</p>
       </section>
       <aside class="card memory">
         <h3>🧠 ${t('chat.memory')}</h3>
@@ -74,7 +82,7 @@ async function chatPage(main) {
   const drawMessages = list => {
     const forMsg = id => actions.filter(a => a.message_id === id).map(actionCard).join('');
     const loose = actions.filter(a => a.status === 'pending' && !list.some(m => m.id === a.message_id)).map(actionCard).join('');
-    msgsEl.innerHTML = list.length || loose ? list.map(m => `<div class="msg ${m.role}">${md(m.content)}</div>${m.id ? forMsg(m.id) : ''}`).join('') + loose
+    msgsEl.innerHTML = list.length || loose ? list.map(m => `<div class="msg ${m.role}">${md(m.content)}${attachmentsHtml(m.attachments)}</div>${m.id ? forMsg(m.id) : ''}`).join('') + loose
       : `<div class="welcome"><h2>${esc(t('chat.welcome', { name: first }))}</h2><p>${t('chat.welcome.sub')}</p>
          <div class="suggest">${suggestions.map(s => `<button type="button">${esc(s)}</button>`).join('')}</div></div>`;
     msgsEl.querySelectorAll('.suggest button').forEach(b => b.onclick = () => { input.value = b.textContent; main.querySelector('#send').requestSubmit(); });
@@ -86,6 +94,7 @@ async function chatPage(main) {
       } catch (err) { toast(err.message); }
       refresh();
     });
+    wireAttachments(msgsEl).catch(() => {});
     msgsEl.scrollTop = msgsEl.scrollHeight;
   };
   const drawMemory = mem => {
@@ -102,7 +111,7 @@ async function chatPage(main) {
   let messages = [];
   const refresh = async () => {
     const [msgs, mem, acts] = await Promise.all([
-      sb.from('chat_messages').select('id, role, content, model, created_at').eq('founder_id', state.user.id).order('id'),
+      sb.from('chat_messages').select('id, role, content, model, attachments, created_at').eq('founder_id', state.user.id).order('id'),
       sb.from('founder_memory').select('id, content, created_at').eq('founder_id', state.user.id).order('id', { ascending: false }),
       sb.from('ai_actions').select('*').eq('founder_id', state.user.id).order('id').limit(300),
     ]);
@@ -113,26 +122,67 @@ async function chatPage(main) {
     .catch(() => { state.ai.connected = 'missing'; })
     .finally(showAiStatus);
 
+  // ----- files waiting to be sent (attach button, paste, or drag and drop) -----
+  let pending = [];
+  const pendingEl = main.querySelector('#pending');
+  const drawPending = () => {
+    pendingEl.hidden = !pending.length;
+    pendingEl.innerHTML = pending.map((f, i) => `<span class="file-chip"><span aria-hidden="true">${fileIcon(fileType(f))}</span><span class="fname" dir="auto">${esc(f.name)}</span>
+      <span class="muted small">${fmtSize(f.size)}</span><button type="button" data-unpick="${i}" aria-label="${esc(t('files.remove', { name: f.name }))}" title="${esc(t('files.remove', { name: f.name }))}">×</button></span>`).join('');
+    pendingEl.querySelectorAll('[data-unpick]').forEach(b => b.onclick = () => { pending.splice(Number(b.dataset.unpick), 1); drawPending(); });
+  };
+  const addFiles = list => {
+    for (const f of list) {
+      const problem = checkChatFile(f);
+      if (problem) { toast(problem); continue; }
+      if (pending.length >= MAX_FILES_PER_MESSAGE) { toast(t('files.tooMany', { n: MAX_FILES_PER_MESSAGE })); break; }
+      pending.push(f);
+    }
+    drawPending();
+  };
+  const picker = main.querySelector('#files');
+  main.querySelector('#attach').onclick = () => picker.click();
+  picker.onchange = () => { addFiles([...picker.files]); picker.value = ''; };
+  input.addEventListener('paste', e => { if (e.clipboardData?.files?.length) { e.preventDefault(); addFiles([...e.clipboardData.files]); } });
+  const chatCard = main.querySelector('.chat');
+  chatCard.addEventListener('dragover', e => { e.preventDefault(); chatCard.classList.add('dropping'); });
+  chatCard.addEventListener('dragleave', e => { if (e.target === chatCard) chatCard.classList.remove('dropping'); });
+  chatCard.addEventListener('drop', e => { e.preventDefault(); chatCard.classList.remove('dropping'); addFiles([...e.dataTransfer.files]); });
+
+  const stopDictation = setupDictation(main.querySelector('#mic'), main.querySelector('#miclang'), input);
+
   input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); main.querySelector('#send').requestSubmit(); } });
   input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 180) + 'px'; });
   main.querySelector('#send').onsubmit = async e => {
     e.preventDefault();
-    const text = input.value.trim(); if (!text) return;
-    input.value = ''; input.style.height = 'auto';
-    messages.push({ role: 'user', content: text }); drawMessages(messages);
-    msgsEl.insertAdjacentHTML('beforeend', `<div class="msg assistant thinking">${t('chat.thinking')}</div>`); msgsEl.scrollTop = msgsEl.scrollHeight;
-    const btn = e.target.querySelector('button'); btn.disabled = true;
+    stopDictation();
+    const text = input.value.trim(), files = pending;
+    if (!text && !files.length) return;
+    input.value = ''; input.style.height = 'auto'; pending = []; drawPending();
+    messages.push({ role: 'user', content: text, attachments: files.map(f => ({ name: f.name, type: fileType(f) })) }); drawMessages(messages);
+    msgsEl.insertAdjacentHTML('beforeend', `<div class="msg assistant thinking">${t(files.length ? 'files.uploading' : 'chat.thinking')}</div>`); msgsEl.scrollTop = msgsEl.scrollHeight;
+    const btn = main.querySelector('#sendbtn'); btn.disabled = true;
+    let uploaded = [];
     try {
-      const r = await callFunction('ai-chat', { action: 'send', message: text, model: main.querySelector('#model').value });
+      uploaded = await uploadChatFiles(files);
+      const thinking = msgsEl.querySelector('.thinking'); if (thinking) thinking.textContent = t('chat.thinking');
+      const r = await callFunction('ai-chat', { action: 'send', message: text, attachments: uploaded, model: main.querySelector('#model').value });
       if (r.saved_memory?.length) toast(t('chat.savedMem'));
       if (typeof r.connected === 'boolean' && r.connected !== state.ai.connected) { state.ai.connected = r.connected; showAiStatus(); }
       await refresh();
-    } catch (err) { messages.pop(); drawMessages(messages); input.value = text; toast(err.message); }
+    } catch (err) {
+      removeChatFiles(uploaded.map(a => a.path)).catch(() => {}); // the message wasn't saved, so don't keep its files
+      messages.pop(); drawMessages(messages); input.value = text; pending = files; drawPending(); toast(err.message);
+    }
     btn.disabled = false; input.focus();
   };
   main.querySelector('#clear').onclick = async () => {
     if (!await confirmAction({ title: t('confirm.newChat'), message: t('confirm.newChatMsg'), confirm: t('chat.new') })) return;
-    try { check(await sb.from('chat_messages').delete().eq('founder_id', state.user.id)); refresh(); }
+    try {
+      check(await sb.from('chat_messages').delete().eq('founder_id', state.user.id));
+      await removeAllChatFiles().catch(() => {}); // the files belonged to the cleared chat
+      refresh();
+    }
     catch (err) { toast(err.message); }
   };
   refresh().catch(err => { msgsEl.innerHTML = `<div class="empty">${esc(err.message)}</div>`; });

@@ -186,6 +186,16 @@ const STRINGS = {
     'remind.never': "Hi Dr. {name}, this is Nile Therapy. We haven't seen any sessions from you in the portal yet. Please log each visit right after you finish it. Thank you!",
     'remind.days': "Hi Dr. {name}, this is Nile Therapy. Your last logged session was {n} days ago. If you've had visits since then, please log them in the portal. Thank you!",
     'remind.copied': 'No phone number saved for this doctor, so the message was copied. Paste it into WhatsApp.',
+    'files.attach': 'Attach files (images, PDF, text/CSV)', 'files.remove': 'Remove {name}',
+    'files.note': 'You can attach photos, PDFs and text/CSV files (or paste a screenshot), and use 🎤 to dictate. Files are private to you.',
+    'files.badType': '"{name}" can\'t be attached. Use an image, PDF, or a text/CSV file (save Word/Excel as PDF or CSV first).',
+    'files.tooBig': '"{name}" is too large (max {max} MB).', 'files.tooMany': 'At most {n} files per message.',
+    'files.uploading': 'Uploading files…', 'files.uploadFailed': 'Couldn\'t upload "{name}". Please try again.',
+    'files.openFailed': 'Couldn\'t open that file.',
+    'voice.start': 'Dictate: speak and it types for you', 'voice.stop': 'Stop dictating', 'voice.listening': 'Listening… speak now, then press 🎤 again or Send',
+    'voice.langAr': 'Dictation language: Arabic (click for English)', 'voice.langEn': 'Dictation language: English (click for Arabic)',
+    'voice.denied': 'The browser blocked the microphone. Allow microphone access for this site and try again.',
+    'voice.error': 'Dictation stopped. Please try again.',
   },
 
   ar: {
@@ -370,6 +380,16 @@ const STRINGS = {
     'remind.never': 'أهلاً د. {name}، معك نايل ثيرابي. لم نرَ أي جلسات منك على البوابة بعد. برجاء تسجيل كل زيارة فور الانتهاء منها. شكراً لك!',
     'remind.days': 'أهلاً د. {name}، معك نايل ثيرابي. آخر جلسة سجلتها كانت منذ {n} يوم. إذا كانت لديك زيارات بعدها، برجاء تسجيلها على البوابة. شكراً لك!',
     'remind.copied': 'لا يوجد رقم هاتف محفوظ لهذا الطبيب، لذلك تم نسخ الرسالة. الصقها في واتساب.',
+    'files.attach': 'إرفاق ملفات (صور، PDF، نص/CSV)', 'files.remove': 'إزالة {name}',
+    'files.note': 'يمكنك إرفاق صور وملفات PDF ونص/CSV (أو لصق لقطة شاشة)، واستخدام 🎤 للإملاء الصوتي. الملفات خاصة بك.',
+    'files.badType': 'لا يمكن إرفاق «{name}». استخدم صورة أو PDF أو ملف نص/CSV (احفظ ملفات Word/Excel كـ PDF أو CSV أولاً).',
+    'files.tooBig': '«{name}» كبير جداً (الحد الأقصى {max} ميجابايت).', 'files.tooMany': 'الحد الأقصى {n} ملفات لكل رسالة.',
+    'files.uploading': 'جارٍ رفع الملفات…', 'files.uploadFailed': 'تعذّر رفع «{name}». حاول مرة أخرى.',
+    'files.openFailed': 'تعذّر فتح هذا الملف.',
+    'voice.start': 'إملاء صوتي: تحدّث وسيُكتب الكلام', 'voice.stop': 'إيقاف الإملاء', 'voice.listening': 'جارٍ الاستماع… تحدّث الآن، ثم اضغط 🎤 مرة أخرى أو إرسال',
+    'voice.langAr': 'لغة الإملاء: العربية (اضغط للإنجليزية)', 'voice.langEn': 'لغة الإملاء: الإنجليزية (اضغط للعربية)',
+    'voice.denied': 'المتصفح منع الميكروفون. اسمح لهذا الموقع باستخدام الميكروفون وحاول مرة أخرى.',
+    'voice.error': 'توقف الإملاء. حاول مرة أخرى.',
   },
 };
 
@@ -395,6 +415,10 @@ const SERVER_MESSAGES_AR = {
   'This action was already handled': 'تم التعامل مع هذا الإجراء بالفعل',
   'Nothing would change': 'لن يتغير شيء',
   'Unknown action': 'إجراء غير معروف',
+  'At most 5 files per message': 'الحد الأقصى 5 ملفات لكل رسالة',
+  'Bad file': 'ملف غير صالح',
+  'This file type is not supported': 'نوع الملف غير مدعوم',
+  'File is too large': 'الملف كبير جداً',
 };
 
 let LANG = 'en';
