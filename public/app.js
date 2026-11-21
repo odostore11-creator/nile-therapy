@@ -159,7 +159,8 @@ const icons = {
   chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12Z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01" stroke-width="2.6" stroke-linecap="round"/></svg>',
   log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>',
 };
-const waves = `<svg class="waves" viewBox="0 0 600 200" preserveAspectRatio="none"><path d="M0 120c80-60 140 40 220-10s120-90 200-40 120 30 180-10v140H0Z" fill="#165a5b"/><path d="M0 150c90-40 150 30 240-5s130-60 210-20 100 20 150-5v80H0Z" fill="#1c6b69"/><path d="M0 60c100-60 160 60 260 0s140-70 220-30 90 20 120 0" fill="none" stroke="#e9c46a" stroke-width="3"/></svg>`;
+// River waves in the logo's colors (light water, deep water, green bank).
+const waves = `<svg class="waves" viewBox="0 0 600 200" preserveAspectRatio="none" aria-hidden="true"><path d="M0 120c80-60 140 40 220-10s120-90 200-40 120 30 180-10v140H0Z" fill="#cfe4f1"/><path d="M0 150c90-40 150 30 240-5s130-60 210-20 100 20 150-5v80H0Z" fill="#93c4dc"/><path d="M0 172c90-30 160 22 250-4s140-44 220-14 90 14 130-2v48H0Z" fill="#0a78b4"/><path d="M0 70c100-60 160 60 260 0s140-70 220-30 90 20 120 0" fill="none" stroke="#9ccc84" stroke-width="3"/></svg>`;
 
 // ---------- routing ----------
 function route() { return (location.hash.replace(/^#\/?/, '') || '').split('/'); }
@@ -189,7 +190,7 @@ function renderLogin() {
   $app.innerHTML = `
   <div class="login">
     <section class="login-art">
-      <div class="brand"><img src="logo.svg" alt=""> NILE THERAPY</div>
+      <img class="login-logo" src="logo-full.png" alt="Nile Therapy" width="280" height="238">
       <div>
         <h1>Care that moves with the river.</h1>
         <p>The internal portal for Nile Therapy's founders and doctors — session logs, the doctor team, and each founder's AI partner in one place.</p>
@@ -240,7 +241,7 @@ function shell(active, renderPage) {
   $app.innerHTML = `
   <div class="shell">
     <aside class="side">
-      <div class="brand"><img src="logo.svg" alt=""> NILE THERAPY</div>
+      <div class="brand"><span class="brand-mark"><img src="logo-mark.png" alt="" width="40" height="40"></span> Nile Therapy</div>
       ${nav.map(([k, label, ic]) => `<a class="nav ${active === k ? 'on' : ''}" href="#/${k}">${ic}${label}</a>`).join('')}
       <div class="spacer"></div>
       <div class="me">
