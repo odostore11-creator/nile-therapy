@@ -1,0 +1,6 @@
+node_modules
+.env
+data/
+
+# Private planning notes (names, business details) stay off the public repo
+CLAUDE.md
