@@ -1,8 +1,15 @@
 'use strict';
 // Nile Therapy portal — single-page app, no framework.
+// Data lives in Supabase. Who can see/change what is enforced by Row Level Security in the
+// database (supabase/migrations), not by this file. Admin actions and the AI run in Edge Functions.
 
 const $app = document.getElementById('app');
-const state = { user: null, ai: null, loginRole: 'admin', sessionsView: 'grouped' };
+const CFG = window.NILE_CONFIG;
+const sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+});
+const MODELS = { 'claude-sonnet-5-5': 'Sonnet (fast, everyday)', 'claude-opus-5-5': 'Opus (deep thinking)' };
+const state = { user: null, ai: { models: MODELS, default: 'claude-sonnet-5-5', connected: null }, loginRole: 'admin', sessionsView: 'grouped' };
 
 // ---------- helpers ----------
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -11,18 +18,134 @@ const today = () => new Date().toISOString().slice(0, 10);
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 const typeClass = t => /home/i.test(t) ? 'home' : /online/i.test(t) ? 'online' : '';
 
-async function api(path, opts = {}) {
-  const res = await fetch(path, {
-    method: opts.method || 'GET',
-    headers: opts.body ? { 'Content-Type': 'application/json' } : {},
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-    credentials: 'same-origin',
-  });
-  const data = await res.json().catch(() => ({}));
-  if (res.status === 401 && path !== '/api/login') { state.user = null; render(); }
-  if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
-  return data;
+// ---------- data layer (Supabase) ----------
+function friendly(e) {
+  const m = e?.message || String(e);
+  if (/JWT expired|not authenticated|invalid claim|session.*missing/i.test(m)) return 'Please log in again';
+  if (/row-level security|permission denied/i.test(m)) return 'Not allowed';
+  if (/violates check constraint/i.test(m)) return 'Some fields are too long or invalid';
+  if (/Failed to fetch|NetworkError/i.test(m)) return 'Can\'t reach the server. Check your internet connection.';
+  return m;
 }
+function check({ data, error }) { if (error) throw new Error(friendly(error)); return data; }
+const loginEmail = username => `${String(username || '').trim().toLowerCase()}@${CFG.loginEmailDomain}`;
+
+async function callFunction(name, body) {
+  const { data, error } = await sb.functions.invoke(name, { body });
+  if (!error) return data;
+  let msg = error.message;
+  try { const j = await error.context.json(); msg = j.error || j.message || msg; } catch { /* not JSON */ }
+  if (error.context?.status === 404) msg = 'This feature needs its server function, which isn\'t set up yet.';
+  throw new Error(friendly({ message: msg }));
+}
+
+async function loadMe() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return null;
+  const me = check(await sb.from('profiles').select('*').eq('id', session.user.id).maybeSingle());
+  if (!me || !me.active) { await sb.auth.signOut(); return null; }
+  return me;
+}
+
+const normalizeSession = s => ({
+  ...s,
+  session_time: s.session_time ? s.session_time.slice(0, 5) : '',
+  doctor_name: s.doctor?.full_name || '',
+  doctor_username: s.doctor?.username || '',
+});
+async function listSessions({ doctorId, from, to, q } = {}) {
+  const term = String(q || '').replace(/["\\,()]/g, ' ').trim().slice(0, 100);
+  const out = [];
+  for (let start = 0; ; start += 1000) { // Supabase returns at most 1000 rows per request
+    let query = sb.from('sessions').select('*, doctor:profiles!sessions_doctor_id_fkey(full_name, username)')
+      .order('session_date', { ascending: false })
+      .order('session_time', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: false })
+      .range(start, start + 999);
+    if (doctorId) query = query.eq('doctor_id', doctorId);
+    if (from) query = query.gte('session_date', from);
+    if (to) query = query.lte('session_date', to);
+    if (term) query = query.or(['patient_name', 'location', 'notes'].map(c => `${c}.ilike."%${term}%"`).join(','));
+    const rows = check(await query);
+    out.push(...rows.map(normalizeSession));
+    if (rows.length < 1000) return out;
+  }
+}
+function sessionPayload(b) {
+  const s = {
+    patient_name: String(b.patient_name || '').trim(), location: String(b.location || '').trim(),
+    session_date: b.session_date || '', session_time: b.session_time || null,
+    session_type: b.session_type || '', notes: String(b.notes || '').trim(),
+    duration_min: b.duration_min === '' || b.duration_min == null ? null : Math.max(0, Math.min(600, parseInt(b.duration_min, 10) || 0)),
+  };
+  if (!s.patient_name) throw new Error('Patient name is required');
+  if (!s.location) throw new Error('Location is required');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s.session_date)) throw new Error('Session date is required');
+  return s;
+}
+async function addSession(b, doctorId) {
+  if (!doctorId) throw new Error('Pick a doctor');
+  check(await sb.from('sessions').insert({ ...sessionPayload(b), doctor_id: doctorId }));
+}
+async function updateSession(id, b) {
+  const rows = check(await sb.from('sessions').update(sessionPayload(b)).eq('id', id).select('id'));
+  if (!rows.length) throw new Error('Not allowed');
+}
+async function deleteSession(id) {
+  const rows = check(await sb.from('sessions').delete().eq('id', id).select('id'));
+  if (!rows.length) throw new Error('Not allowed');
+}
+
+const statsFor = s => ({ total: s?.total ?? 0, this_month: s?.this_month ?? 0, patients: s?.patients ?? 0, last_session: s?.last_session ?? null });
+async function listDoctors() {
+  const [docs, stats] = await Promise.all([
+    sb.from('profiles').select('*').eq('role', 'doctor').order('active', { ascending: false }).order('full_name'),
+    sb.from('doctor_stats').select('*'),
+  ]);
+  const byId = new Map(check(stats).map(s => [s.doctor_id, s]));
+  return check(docs).map(d => ({ ...d, stats: statsFor(byId.get(d.id)) }));
+}
+async function getDoctor(id) {
+  const [doc, stats, sessions] = await Promise.all([
+    sb.from('profiles').select('*').eq('id', id).eq('role', 'doctor').maybeSingle(),
+    sb.from('doctor_stats').select('*').eq('doctor_id', id).maybeSingle(),
+    listSessions({ doctorId: id }),
+  ]);
+  const d = check(doc);
+  if (!d) throw new Error('Doctor not found');
+  const byPatient = new Map();
+  for (const s of sessions) {
+    const p = byPatient.get(s.patient_name) || { patient_name: s.patient_name, sessions: 0, last: '' };
+    p.sessions++; if (s.session_date > p.last) p.last = s.session_date;
+    byPatient.set(s.patient_name, p);
+  }
+  const patients = [...byPatient.values()].sort((a, b) => b.last.localeCompare(a.last));
+  return { doctor: { ...d, stats: statsFor(check(stats)) }, sessions, patients };
+}
+async function updateDoctor(id, b) {
+  const rows = check(await sb.from('profiles').update({
+    full_name: String(b.full_name || '').trim(), title: String(b.title || '').trim(), specialty: String(b.specialty || '').trim(),
+    phone: String(b.phone || '').trim(), area: String(b.area || '').trim(), bio: String(b.bio || '').trim(), active: !!b.active,
+  }).eq('id', id).eq('role', 'doctor').select('id'));
+  if (!rows.length) throw new Error('Not allowed');
+}
+
+function csvCell(v) {
+  const s = v == null ? '' : String(v);
+  const risky = /^[=+\-@]/.test(s); // stop Excel from running formulas
+  return /[",\n\r]/.test(s) || risky ? `"${(risky ? "'" : '') + s.replace(/"/g, '""')}"` : s;
+}
+async function downloadCsv(filters) {
+  const rows = await listSessions(filters);
+  const cols = ['session_date', 'session_time', 'doctor_name', 'patient_name', 'session_type', 'location', 'duration_min', 'notes', 'created_at'];
+  const csv = '\uFEFF' + [cols.join(','), ...rows.map(r => cols.map(c => csvCell(r[c])).join(','))].join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `nile-therapy-sessions-${today()}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
 function toast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
@@ -43,7 +166,10 @@ function route() { return (location.hash.replace(/^#\/?/, '') || '').split('/');
 window.addEventListener('hashchange', render);
 
 async function boot() {
-  try { const r = await api('/api/me'); state.user = r.user; state.ai = r.ai; } catch { state.user = null; }
+  try { state.user = await loadMe(); } catch { state.user = null; }
+  sb.auth.onAuthStateChange(event => {
+    if (event === 'SIGNED_OUT' && state.user) { state.user = null; location.hash = ''; render(); }
+  });
   render();
 }
 
@@ -51,7 +177,7 @@ function render() {
   if (!state.user) return renderLogin();
   const [page, arg] = route();
   if (state.user.role === 'doctor') return shell('log', doctorPortal);
-  if (page === 'doctors' && arg) return shell('doctors', el => doctorProfile(el, Number(arg)));
+  if (page === 'doctors' && arg) return shell('doctors', el => doctorProfile(el, arg));
   if (page === 'doctors') return shell('doctors', doctorsPage);
   if (page === 'chat') return shell('chat', chatPage);
   return shell('sessions', sessionsPage);
@@ -63,7 +189,7 @@ function renderLogin() {
   $app.innerHTML = `
   <div class="login">
     <section class="login-art">
-      <div class="brand"><img src="/logo.svg" alt=""> NILE THERAPY</div>
+      <div class="brand"><img src="logo.svg" alt=""> NILE THERAPY</div>
       <div>
         <h1>Care that moves with the river.</h1>
         <p>The internal portal for Nile Therapy's founders and doctors — session logs, the doctor team, and each founder's AI partner in one place.</p>
@@ -91,12 +217,15 @@ function renderLogin() {
     e.preventDefault();
     const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true;
     try {
-      const r = await api('/api/login', { method: 'POST', body: formData(e.target) });
-      if (r.user.role !== state.loginRole) {
-        toast(r.user.role === 'admin' ? 'Signed in as a founder' : 'Signed in as a doctor');
-      }
-      const me = await api('/api/me'); state.user = me.user; state.ai = me.ai;
-      location.hash = r.user.role === 'admin' ? '#/sessions' : '#/log';
+      const b = formData(e.target);
+      const { error } = await sb.auth.signInWithPassword({ email: loginEmail(b.username), password: String(b.password || '') });
+      if (error) throw new Error(/invalid login credentials/i.test(error.message) ? 'Wrong username or password'
+        : /rate limit|too many/i.test(error.message) ? 'Too many attempts. Try again in a few minutes.' : friendly(error));
+      const me = await loadMe();
+      if (!me) throw new Error('This account is turned off. Ask a founder.');
+      if (me.role !== state.loginRole) toast(me.role === 'admin' ? 'Signed in as a founder' : 'Signed in as a doctor');
+      state.user = me;
+      location.hash = me.role === 'admin' ? '#/sessions' : '#/log';
       render();
     } catch (err) { document.getElementById('err').textContent = err.message; btn.disabled = false; }
   };
@@ -111,7 +240,7 @@ function shell(active, renderPage) {
   $app.innerHTML = `
   <div class="shell">
     <aside class="side">
-      <div class="brand"><img src="/logo.svg" alt=""> NILE THERAPY</div>
+      <div class="brand"><img src="logo.svg" alt=""> NILE THERAPY</div>
       ${nav.map(([k, label, ic]) => `<a class="nav ${active === k ? 'on' : ''}" href="#/${k}">${ic}${label}</a>`).join('')}
       <div class="spacer"></div>
       <div class="me">
@@ -121,7 +250,7 @@ function shell(active, renderPage) {
     </aside>
     <main class="main" id="main"></main>
   </div>`;
-  document.getElementById('out').onclick = async () => { await api('/api/logout', { method: 'POST' }); state.user = null; location.hash = ''; render(); };
+  document.getElementById('out').onclick = async () => { state.user = null; location.hash = ''; await sb.auth.signOut(); render(); };
   document.getElementById('pw').onclick = passwordModal;
   renderPage(document.getElementById('main'));
 }
@@ -148,7 +277,17 @@ function passwordModal() {
     </form>`, (m, close) => {
     m.querySelector('form').onsubmit = async e => {
       e.preventDefault();
-      try { await api('/api/me/password', { method: 'POST', body: formData(e.target) }); close(); toast('Password changed'); }
+      try {
+        const b = formData(e.target);
+        if (String(b.next || '').length < 8) throw new Error('New password must be at least 8 characters');
+        // Supabase doesn't ask for the old password, so check it ourselves first.
+        const { error: wrong } = await sb.auth.signInWithPassword({ email: loginEmail(state.user.username), password: String(b.current || '') });
+        if (wrong) throw new Error('Current password is wrong');
+        const { error } = await sb.auth.updateUser({ password: String(b.next) });
+        if (error) throw new Error(friendly(error));
+        await sb.auth.signOut({ scope: 'others' }); // log out other devices, like v0.1
+        close(); toast('Password changed');
+      }
       catch (err) { m.querySelector('#pwerr').textContent = err.message; }
     };
   });
@@ -188,12 +327,13 @@ function editSessionModal(s, onDone) {
     const f = m.querySelector('form'); wireTypePick(f);
     f.onsubmit = async e => {
       e.preventDefault();
-      try { await api(`/api/sessions/${s.id}`, { method: 'PUT', body: formData(f) }); close(); toast('Session updated'); onDone(); }
+      try { await updateSession(s.id, formData(f)); close(); toast('Session updated'); onDone(); }
       catch (err) { f.querySelector('.error').textContent = err.message; }
     };
     m.querySelector('[data-del]').onclick = async () => {
       if (!confirm('Delete this session?')) return;
-      await api(`/api/sessions/${s.id}`, { method: 'DELETE' }); close(); toast('Session deleted'); onDone();
+      try { await deleteSession(s.id); close(); toast('Session deleted'); onDone(); }
+      catch (err) { f.querySelector('.error').textContent = err.message; }
     };
   });
 }
@@ -230,7 +370,7 @@ async function doctorPortal(main) {
     </div>`;
   const form = main.querySelector('#new'); wireTypePick(form);
   const load = async () => {
-    const { sessions } = await api('/api/sessions');
+    const sessions = await listSessions({ doctorId: u.id });
     main.querySelector('#count').textContent = `${sessions.length} total`;
     main.querySelector('#mine').innerHTML = sessionRows(sessions, { showDoctor: false, editable: true });
     main.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => editSessionModal(sessions.find(s => s.id == b.dataset.edit), load));
@@ -239,7 +379,7 @@ async function doctorPortal(main) {
     e.preventDefault();
     const btn = form.querySelector('.btn.block'); btn.disabled = true;
     try {
-      await api('/api/sessions', { method: 'POST', body: formData(form) });
+      await addSession(formData(form), u.id);
       toast('Session logged — thank you');
       const keep = form.querySelector('[name=session_type]').value;
       form.reset(); form.querySelector('[name=session_type]').value = keep;
@@ -249,16 +389,18 @@ async function doctorPortal(main) {
     } catch (err) { form.querySelector('.error').textContent = err.message; }
     btn.disabled = false;
   };
-  load();
+  load().catch(err => { main.querySelector('#mine').innerHTML = `<div class="empty">${esc(err.message)}</div>`; });
 }
 
 // ---------- admin: sessions ----------
 async function sessionsPage(main) {
-  const { doctors } = await api('/api/doctors');
+  let doctors;
+  try { doctors = await listDoctors(); }
+  catch (err) { main.innerHTML = `<div class="card empty">${esc(err.message)}</div>`; return; }
   main.innerHTML = `
     <div class="head">
       <div><h1>Sessions</h1><p class="muted">Every session your doctors have logged.</p></div>
-      <div style="display:flex;gap:8px"><button class="btn ghost" id="add">+ Add for a doctor</button><a class="btn" id="csv" href="/api/sessions.csv">Export to Excel (CSV)</a></div>
+      <div style="display:flex;gap:8px"><button class="btn ghost" id="add">+ Add for a doctor</button><button class="btn" id="csv">Export to Excel (CSV)</button></div>
     </div>
     <div class="stats" id="stats"></div>
     <div class="toolbar">
@@ -273,14 +415,19 @@ async function sessionsPage(main) {
   const setView = () => main.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === state.sessionsView));
   setView();
 
+  const filters = () => ({ q: f('q').value, doctorId: f('doc').value || null, from: f('from').value, to: f('to').value });
+  f('csv').onclick = async () => {
+    f('csv').disabled = true;
+    try { await downloadCsv(filters()); } catch (err) { toast(err.message); }
+    f('csv').disabled = false;
+  };
+  let loadNo = 0;
   const load = async () => {
-    const params = new URLSearchParams();
-    if (f('q').value) params.set('q', f('q').value);
-    if (f('doc').value) params.set('doctor_id', f('doc').value);
-    if (f('from').value) params.set('from', f('from').value);
-    if (f('to').value) params.set('to', f('to').value);
-    f('csv').href = '/api/sessions.csv?' + params;
-    const { sessions } = await api('/api/sessions?' + params);
+    const mine = ++loadNo; // ignore slow, out-of-date responses while typing
+    let sessions;
+    try { sessions = await listSessions(filters()); }
+    catch (err) { f('list').innerHTML = `<div class="card empty">${esc(err.message)}</div>`; return; }
+    if (mine !== loadNo) return;
     const month = today().slice(0, 7);
     const thisMonth = sessions.filter(s => s.session_date.startsWith(month)).length;
     const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
@@ -316,7 +463,7 @@ async function sessionsPage(main) {
     const form = m.querySelector('form'); wireTypePick(form);
     form.onsubmit = async e => {
       e.preventDefault();
-      try { await api('/api/sessions', { method: 'POST', body: formData(form) }); close(); toast('Session added'); load(); }
+      try { const b = formData(form); await addSession(b, b.doctor_id); close(); toast('Session added'); load(); }
       catch (err) { form.querySelector('.error').textContent = err.message; }
     };
   });
@@ -353,7 +500,9 @@ function showCredentials(title, { username, password }) {
 async function doctorsPage(main) {
   main.innerHTML = `<div class="head"><div><h1>Doctors</h1><p class="muted">Your team. Click a doctor to open their profile.</p></div><button class="btn" id="add">+ Add doctor</button></div><div id="grid" class="doc-grid"></div>`;
   const load = async () => {
-    const { doctors } = await api('/api/doctors');
+    let doctors;
+    try { doctors = await listDoctors(); }
+    catch (err) { main.querySelector('#grid').innerHTML = `<div class="card empty">${esc(err.message)}</div>`; return; }
     main.querySelector('#grid').innerHTML = doctors.length ? doctors.map(d => `
       <button class="card doc" data-id="${d.id}">
         <div class="doc-top"><div class="avatar">${esc(initials(d.full_name))}</div>
@@ -367,7 +516,10 @@ async function doctorsPage(main) {
       <div class="actions"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn">Create account</button></div></form>`, (m, close) => {
     m.querySelector('form').onsubmit = async e => {
       e.preventDefault();
-      try { const r = await api('/api/doctors', { method: 'POST', body: formData(e.target) }); close(); load(); showCredentials('Doctor account created', r); }
+      try {
+        const r = await callFunction('admin-doctors', { action: 'create', ...formData(e.target) });
+        close(); load(); showCredentials('Doctor account created', r);
+      }
       catch (err) { m.querySelector('.error').textContent = err.message; }
     };
   });
@@ -376,7 +528,7 @@ async function doctorsPage(main) {
 
 async function doctorProfile(main, id) {
   const load = async () => {
-    const { doctor: d, sessions, patients } = await api(`/api/doctors/${id}`);
+    const { doctor: d, sessions, patients } = await getDoctor(id);
     main.innerHTML = `
       <div class="head"><div><a href="#/doctors" class="small">← All doctors</a><h1 dir="auto" style="margin-top:6px">${esc(d.full_name)}</h1></div>
         <div style="display:flex;gap:8px"><button class="btn ghost" id="reset">Reset password</button><button class="btn" id="edit">Edit profile</button></div></div>
@@ -414,13 +566,14 @@ async function doctorProfile(main, id) {
       m.querySelector('form').onsubmit = async e => {
         e.preventDefault();
         const body = formData(e.target); body.active = e.target.active.checked;
-        try { await api(`/api/doctors/${id}`, { method: 'PUT', body }); close(); toast('Profile saved'); load(); }
+        try { await updateDoctor(id, body); close(); toast('Profile saved'); load(); }
         catch (err) { m.querySelector('.error').textContent = err.message; }
       };
     });
     main.querySelector('#reset').onclick = async () => {
       if (!confirm(`Give ${d.full_name} a new password? Their old one will stop working.`)) return;
-      showCredentials('New password', await api(`/api/doctors/${id}/reset-password`, { method: 'POST' }));
+      try { showCredentials('New password', await callFunction('admin-doctors', { action: 'reset_password', doctor_id: id })); }
+      catch (err) { toast(err.message); }
     };
   };
   main.innerHTML = '<div class="empty">Loading…</div>';
@@ -456,7 +609,7 @@ async function chatPage(main) {
             <button class="btn ghost sm" id="clear">New chat</button>
           </div>
         </div>
-        ${ai.connected ? '' : `<div class="banner">AI not connected yet — chat, history and memory work, but replies are placeholders until the Anthropic API key is added.</div>`}
+        <div class="banner" id="aibanner" hidden></div>
         <div class="msgs" id="msgs"></div>
         <form class="composer" id="send">
           <textarea id="input" rows="1" dir="auto" placeholder="Ask about sessions, doctors, plans… (Enter to send, Shift+Enter for a new line)"></textarea>
@@ -482,10 +635,28 @@ async function chatPage(main) {
   const drawMemory = mem => {
     main.querySelector('#mem').innerHTML = mem.length ? mem.map(m => `<div class="mem-item"><span dir="auto">${esc(m.content)}</span><button title="Forget this" aria-label="Forget this" data-mem="${m.id}">×</button></div>`).join('')
       : '<p class="muted small">Nothing yet.</p>';
-    main.querySelectorAll('[data-mem]').forEach(b => b.onclick = async () => { await api(`/api/memory/${b.dataset.mem}`, { method: 'DELETE' }); refresh(); });
+    main.querySelectorAll('[data-mem]').forEach(b => b.onclick = async () => {
+      try { check(await sb.from('founder_memory').delete().eq('id', b.dataset.mem).eq('founder_id', state.user.id)); refresh(); }
+      catch (err) { toast(err.message); }
+    });
   };
+  const banner = text => { const el = main.querySelector('#aibanner'); el.hidden = !text; el.textContent = text || ''; };
+  const showAiStatus = () => banner(
+    state.ai.connected === false ? 'AI not connected yet. Chat, history and memory work, but replies are placeholders until the Anthropic API key is added.'
+    : state.ai.connected === 'missing' ? 'The AI server function isn\'t set up yet, so messages can\'t be sent. History and memory still show here.'
+    : '');
   let messages = [];
-  const refresh = async () => { const r = await api('/api/chat'); messages = r.messages; drawMessages(messages); drawMemory(r.memory); };
+  const refresh = async () => {
+    const [msgs, mem] = await Promise.all([
+      sb.from('chat_messages').select('id, role, content, model, created_at').eq('founder_id', state.user.id).order('id'),
+      sb.from('founder_memory').select('id, content, created_at').eq('founder_id', state.user.id).order('id', { ascending: false }),
+    ]);
+    messages = check(msgs); drawMessages(messages); drawMemory(check(mem));
+  };
+  callFunction('ai-chat', { action: 'status' })
+    .then(r => { state.ai.connected = !!r.connected; })
+    .catch(() => { state.ai.connected = 'missing'; })
+    .finally(showAiStatus);
 
   input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); main.querySelector('#send').requestSubmit(); } });
   input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 180) + 'px'; });
@@ -497,17 +668,19 @@ async function chatPage(main) {
     msgsEl.insertAdjacentHTML('beforeend', '<div class="msg assistant thinking">Thinking…</div>'); msgsEl.scrollTop = msgsEl.scrollHeight;
     const btn = e.target.querySelector('button'); btn.disabled = true;
     try {
-      const r = await api('/api/chat', { method: 'POST', body: { message: text, model: main.querySelector('#model').value } });
+      const r = await callFunction('ai-chat', { action: 'send', message: text, model: main.querySelector('#model').value });
       if (r.saved_memory?.length) toast('Saved to memory');
+      if (typeof r.connected === 'boolean' && r.connected !== state.ai.connected) { state.ai.connected = r.connected; showAiStatus(); }
       await refresh();
     } catch (err) { messages.pop(); drawMessages(messages); input.value = text; toast(err.message); }
     btn.disabled = false; input.focus();
   };
   main.querySelector('#clear').onclick = async () => {
     if (!confirm('Start a new chat? This clears the conversation, but keeps what the AI remembers about you.')) return;
-    await api('/api/chat', { method: 'DELETE' }); refresh();
+    try { check(await sb.from('chat_messages').delete().eq('founder_id', state.user.id)); refresh(); }
+    catch (err) { toast(err.message); }
   };
-  refresh();
+  refresh().catch(err => { msgsEl.innerHTML = `<div class="empty">${esc(err.message)}</div>`; });
 }
 
 boot();
