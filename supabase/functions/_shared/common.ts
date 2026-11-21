@@ -37,9 +37,27 @@ export type Profile = {
   specialty: string; phone: string; area: string; bio: string; active: boolean; created_at: string;
 };
 
+export const bearer = (req: Request) => (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
+
+function publishableKey(): string {
+  try {
+    const k = JSON.parse(Deno.env.get('SUPABASE_PUBLISHABLE_KEYS') ?? '{}').default;
+    if (k) return k;
+  } catch { /* fall back to the legacy key */ }
+  return Deno.env.get('SUPABASE_ANON_KEY')!;
+}
+
+/** A client that acts AS the logged-in user, so Row Level Security applies to everything it does. */
+export function asUser(req: Request) {
+  return createClient(Deno.env.get('SUPABASE_URL')!, publishableKey(), {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${bearer(req)}` } },
+  });
+}
+
 /** Checks the caller's login token and that they are an active founder. */
 export async function requireFounder(req: Request): Promise<Profile> {
-  const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
+  const token = bearer(req);
   if (!token || token.startsWith('sb_')) throw new HttpError(401, 'Please log in');
   const { data, error } = await admin.auth.getUser(token);
   if (error || !data.user) throw new HttpError(401, 'Please log in again');

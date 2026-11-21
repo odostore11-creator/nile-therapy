@@ -16,7 +16,7 @@ const state = { user: null, ai: { default: 'claude-sonnet-5-5', connected: null 
 // ---------- helpers ----------
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const initials = name => String(name || '?').replace(/^(Dr\.?|د\.)\s*/i, '').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => new Date().toLocaleDateString('en-CA'); // local date, YYYY-MM-DD
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString(LANG === 'ar' ? 'ar-EG-u-nu-latn' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 const typeClass = v => /home/i.test(v) ? 'home' : /online/i.test(v) ? 'online' : '';
 const typeLabel = v => (SESSION_TYPES.includes(v) ? t('type.' + v) : v);
@@ -165,6 +165,9 @@ const icons = {
   doctors: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M17 11a3 3 0 1 0 0-6M22 21c0-3-2-5-5-5.5"/></svg>',
   chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12Z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01" stroke-width="2.6" stroke-linecap="round"/></svg>',
   log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  overview: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>',
+  schedule: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  report: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9 17v-3M12 17v-6M15 17v-4"/></svg>',
 };
 // River waves in the logo's colors (light water, deep water, green bank).
 const waves = `<svg class="waves" viewBox="0 0 600 200" preserveAspectRatio="none" aria-hidden="true"><path d="M0 120c80-60 140 40 220-10s120-90 200-40 120 30 180-10v140H0Z" fill="#cfe4f1"/><path d="M0 150c90-40 150 30 240-5s130-60 210-20 100 20 150-5v80H0Z" fill="#93c4dc"/><path d="M0 172c90-30 160 22 250-4s140-44 220-14 90 14 130-2v48H0Z" fill="#0a78b4"/><path d="M0 70c100-60 160 60 260 0s140-70 220-30 90 20 120 0" fill="none" stroke="#9ccc84" stroke-width="3"/></svg>`;
@@ -185,11 +188,14 @@ function render() {
   document.querySelectorAll('.modal-bg').forEach(m => m.remove());
   if (!state.user) return renderLogin();
   const [page, arg] = route();
-  if (state.user.role === 'doctor') return shell('log', doctorPortal);
+  if (state.user.role === 'doctor') return page === 'schedule' ? shell('schedule', schedulePage) : shell('log', doctorPortal);
   if (page === 'doctors' && arg) return shell('doctors', el => doctorProfile(el, arg));
   if (page === 'doctors') return shell('doctors', doctorsPage);
+  if (page === 'sessions') return shell('sessions', sessionsPage);
+  if (page === 'schedule') return shell('schedule', schedulePage);
+  if (page === 'report') return shell('report', el => reportPage(el, arg));
   if (page === 'chat') return shell('chat', chatPage);
-  return shell('sessions', sessionsPage);
+  return shell('overview', overviewPage);
 }
 
 // ---------- login ----------
@@ -236,7 +242,7 @@ function renderLogin() {
       if (!me) throw new Error(t('err.accountOff'));
       if (me.role !== state.loginRole) toast(t(me.role === 'admin' ? 'login.asFounder' : 'login.asDoctor'));
       state.user = me;
-      location.hash = me.role === 'admin' ? '#/sessions' : '#/log';
+      location.hash = me.role === 'admin' ? '#/overview' : '#/log';
       render();
     } catch (err) { document.getElementById('err').textContent = err.message; btn.disabled = false; }
   };
@@ -246,8 +252,9 @@ function renderLogin() {
 function shell(active, renderPage) {
   const u = state.user;
   const nav = u.role === 'admin'
-    ? [['sessions', t('nav.sessions'), icons.sessions], ['doctors', t('nav.doctors'), icons.doctors], ['chat', t('nav.chat'), icons.chat]]
-    : [['log', t('nav.log'), icons.log]];
+    ? [['overview', t('nav.overview'), icons.overview], ['sessions', t('nav.sessions'), icons.sessions], ['schedule', t('nav.schedule'), icons.schedule],
+       ['doctors', t('nav.doctors'), icons.doctors], ['report', t('nav.report'), icons.report], ['chat', t('nav.chat'), icons.chat]]
+    : [['log', t('nav.log'), icons.log], ['schedule', t('nav.mySchedule'), icons.schedule]];
   $app.innerHTML = `
   <div class="shell">
     <aside class="side">
@@ -306,7 +313,7 @@ function passwordModal() {
 }
 
 // ---------- session form (shared by doctors and founders) ----------
-function sessionFormHtml(s = {}, { doctors } = {}) {
+function sessionFormHtml(s = {}, { doctors, future = false } = {}) {
   const type = s.session_type || 'Home visit';
   return `
     ${doctors ? `<div class="field"><label>${t('form.doctor')}</label><select name="doctor_id" required><option value="">${t('form.choose')}</option>${doctors.filter(d => d.active).map(d => `<option value="${d.id}" ${s.doctor_id === d.id ? 'selected' : ''}>${esc(d.full_name)}</option>`).join('')}</select></div>` : ''}
@@ -317,7 +324,7 @@ function sessionFormHtml(s = {}, { doctors } = {}) {
     </div>
     <div class="field"><label>${t('form.where')}</label><input name="location" dir="auto" required value="${esc(s.location)}" placeholder="${esc(t('form.where.ph'))}"></div>
     <div class="grid3">
-      <div class="field"><label>${t('form.date')}</label><input name="session_date" type="date" required value="${esc(s.session_date || today())}" max="${today()}"></div>
+      <div class="field"><label>${t('form.date')}</label><input name="session_date" type="date" required value="${esc(s.session_date || today())}" ${future ? '' : `max="${today()}"`}></div>
       <div class="field"><label>${t('form.time')}</label><input name="session_time" type="time" value="${esc(s.session_time)}"></div>
       <div class="field"><label>${t('form.minutes')}</label><input name="duration_min" type="number" min="0" max="600" step="5" value="${esc(s.duration_min ?? 45)}"></div>
     </div>
@@ -606,6 +613,26 @@ function md(text) {
   return out + (list ? '</ul>' : '');
 }
 
+// A change the AI prepared. Nothing happens until the founder presses Confirm.
+function actionCard(a) {
+  const p = a.payload || {}, after = p.after || {}, before = p.before || {};
+  const show = (k, v) => {
+    if (v === null || v === undefined || v === '') return '—';
+    if (k === 'session_type') return esc(typeLabel(v));
+    if (k === 'active') return t(v ? 'act.on' : 'act.off');
+    if (k === 'status') return t('sched.status.' + v);
+    if (/_date$/.test(k)) return fmtDate(v);
+    return esc(v);
+  };
+  const rows = Object.keys(after).filter(k => k !== 'doctor_id').map(k => `<tr><th>${t('field.' + k)}</th><td dir="auto">${
+    k in before ? `<s>${show(k, before[k])}</s> → ` : ''}<b>${show(k, after[k])}</b></td></tr>`).join('');
+  const foot = a.status === 'pending'
+    ? `<div class="act-buttons"><button type="button" class="btn sm" data-act="confirm" data-id="${a.id}">${t('act.confirm')}</button><button type="button" class="btn ghost sm" data-act="reject" data-id="${a.id}">${t('common.cancel')}</button></div>`
+    : `<p class="act-status ${a.status}">${a.status === 'done' ? '✓ ' + t('act.done') : a.status === 'cancelled' ? '✕ ' + t('act.cancelled') : '⚠ ' + t('act.failed') + (a.result ? `: ${esc(trServer(a.result))}` : '')}</p>`;
+  return `<div class="act-card ${a.status}"><div class="act-title">${t('act.' + a.kind)}${p.target_label ? ` · <span dir="auto">${esc(p.target_label)}</span>` : ''}</div>
+    <table class="act-table"><tbody>${rows}</tbody></table>${foot}</div>`;
+}
+
 async function chatPage(main) {
   const ai = state.ai;
   const first = state.user.full_name.replace(/^(Dr\.?|د\.)\s*/i, '').split(' ')[0];
@@ -636,11 +663,22 @@ async function chatPage(main) {
   const msgsEl = main.querySelector('#msgs'), input = main.querySelector('#input');
   const suggestions = t('chat.suggest');
 
+  let actions = [];
   const drawMessages = list => {
-    msgsEl.innerHTML = list.length ? list.map(m => `<div class="msg ${m.role}">${md(m.content)}</div>`).join('')
+    const forMsg = id => actions.filter(a => a.message_id === id).map(actionCard).join('');
+    const loose = actions.filter(a => a.status === 'pending' && !list.some(m => m.id === a.message_id)).map(actionCard).join('');
+    msgsEl.innerHTML = list.length || loose ? list.map(m => `<div class="msg ${m.role}">${md(m.content)}</div>${m.id ? forMsg(m.id) : ''}`).join('') + loose
       : `<div class="welcome"><h2>${esc(t('chat.welcome', { name: first }))}</h2><p>${t('chat.welcome.sub')}</p>
          <div class="suggest">${suggestions.map(s => `<button type="button">${esc(s)}</button>`).join('')}</div></div>`;
     msgsEl.querySelectorAll('.suggest button').forEach(b => b.onclick = () => { input.value = b.textContent; main.querySelector('#send').requestSubmit(); });
+    msgsEl.querySelectorAll('[data-act]').forEach(b => b.onclick = async () => {
+      const card = b.closest('.act-card'); card.querySelectorAll('button').forEach(x => x.disabled = true);
+      try {
+        const r = await callFunction('ai-chat', { action: b.dataset.act, id: Number(b.dataset.id) });
+        toast(r.status === 'done' ? t('act.doneToast') : r.status === 'failed' ? `${t('act.failed')}: ${trServer(r.result || '')}` : t('act.cancelledToast'));
+      } catch (err) { toast(err.message); }
+      refresh();
+    });
     msgsEl.scrollTop = msgsEl.scrollHeight;
   };
   const drawMemory = mem => {
@@ -655,11 +693,12 @@ async function chatPage(main) {
   const showAiStatus = () => banner(state.ai.connected === false ? t('chat.off') : state.ai.connected === 'missing' ? t('chat.missing') : '');
   let messages = [];
   const refresh = async () => {
-    const [msgs, mem] = await Promise.all([
+    const [msgs, mem, acts] = await Promise.all([
       sb.from('chat_messages').select('id, role, content, model, created_at').eq('founder_id', state.user.id).order('id'),
       sb.from('founder_memory').select('id, content, created_at').eq('founder_id', state.user.id).order('id', { ascending: false }),
+      sb.from('ai_actions').select('*').eq('founder_id', state.user.id).order('id').limit(300),
     ]);
-    messages = check(msgs); drawMessages(messages); drawMemory(check(mem));
+    actions = check(acts); messages = check(msgs); drawMessages(messages); drawMemory(check(mem));
   };
   callFunction('ai-chat', { action: 'status' })
     .then(r => { state.ai.connected = !!r.connected; })
