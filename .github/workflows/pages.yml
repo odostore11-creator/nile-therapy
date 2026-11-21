@@ -5,7 +5,7 @@ name: Deploy site to GitHub Pages
 on:
   push:
     branches: [main]
-    paths: ['public/**', '.github/workflows/pages.yml']
+    paths: ['public/**', 'scripts/check.mjs', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -25,6 +25,12 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Safety checks (syntax, missing files, English/Arabic text, no secrets). If any fail, nothing is published.
+      - name: Check the site
+        run: node scripts/check.mjs
       # Stamp this deploy's version on our CSS/JS links so browsers never mix old and new files.
       - name: Stamp file versions
         run: sed -i "s/?v=dev/?v=${GITHUB_SHA::7}/g" public/index.html && grep -c "?v=${GITHUB_SHA::7}" public/index.html

@@ -78,6 +78,8 @@ function bookVisitModal(onDone, { doctors, appt } = {}) {
       e.preventDefault();
       try {
         const b = formData(form);
+        apptPayload(b); // check the form before asking
+        if (appt && !await confirmAction({ title: t('confirm.saveVisit'), confirm: t('confirm.saveBtn') })) return;
         await saveAppointment(appt?.id, b, founder ? b.doctor_id : (appt ? null : state.user.id));
         close(); toast(t(appt ? 'sched.saved' : 'sched.booked')); onDone();
       } catch (err) { form.querySelector('.error').textContent = err.message; }
@@ -126,9 +128,15 @@ function visitModal(a, onDone, doctors) {
     const act = (sel, fn) => { const b = m.querySelector(sel); if (b) b.onclick = async () => { try { await fn(); } catch (e) { err.textContent = e.message; } }; };
     act('[data-edit]', () => { close(); bookVisitModal(onDone, { doctors, appt: a }); });
     act('[data-done]', () => { close(); markDoneModal(a, onDone); });
-    act('[data-cancel]', async () => { if (!confirm(t('sched.confirmCancel'))) return; await setApptStatus(a.id, 'cancelled'); close(); toast(t('sched.cancelled')); onDone(); });
+    act('[data-cancel]', async () => {
+      if (!await confirmAction({ title: t('confirm.cancelVisit'), message: t('confirm.cancelVisitMsg'), confirm: t('sched.cancelVisit') })) return;
+      await setApptStatus(a.id, 'cancelled'); close(); toast(t('sched.cancelled')); onDone();
+    });
     act('[data-reopen]', async () => { await setApptStatus(a.id, 'planned'); close(); onDone(); });
-    act('[data-del]', async () => { if (!confirm(t('sched.confirmDelete'))) return; await deleteAppointment(a.id); close(); toast(t('sched.deleted')); onDone(); });
+    act('[data-del]', async () => {
+      if (!await confirmAction({ title: t('confirm.deleteVisit'), message: t('confirm.deleteVisitMsg'), confirm: t('confirm.deleteVisitBtn') })) return;
+      await deleteAppointment(a.id); close(); toast(t('sched.deleted')); onDone();
+    });
   });
 }
 
@@ -167,6 +175,7 @@ async function schedulePage(main) {
       ${founder ? `<div class="field"><label for="sdoc">${t('form.doctor')}</label><select id="sdoc"><option value="">${t('sessions.allDoctors')}</option>${doctors.filter(d => d.active).map(d => `<option value="${d.id}" ${state.schedDoctor === d.id ? 'selected' : ''}>${esc(d.full_name)}</option>`).join('')}</select></div>` : ''}
       <label class="check"><input type="checkbox" id="showcx" ${state.schedShowCancelled ? 'checked' : ''}> ${t('sched.showCancelled')}</label>
     </div>
+    <div id="weeknote"></div>
     <div id="week" class="week"><div class="empty">${t('common.loading')}</div></div>`;
   const $ = id => main.querySelector('#' + id);
   let list = [];
@@ -178,6 +187,8 @@ async function schedulePage(main) {
         statuses: state.schedShowCancelled ? null : ['planned', 'done'] });
     } catch (err) { $('week').innerHTML = `<div class="card empty">${esc(err.message)}</div>`; return; }
     const td = today();
+    $('weeknote').innerHTML = list.some(a => a.status !== 'cancelled') ? '' : `<p class="empty-note">${t('sched.emptyWeek')} <button type="button" class="link" id="book2">${t('sched.book')}</button></p>`;
+    $('book2')?.addEventListener('click', () => bookVisitModal(load, { doctors }));
     $('week').innerHTML = Array.from({ length: 7 }, (_, i) => {
       const day = addDays(from, i), items = list.filter(a => a.appt_date === day);
       return `<section class="day ${day === td ? 'today' : ''} ${day < td ? 'past' : ''}" aria-label="${esc(fmtDay(day, { weekday: 'long', day: 'numeric', month: 'long' }))}">

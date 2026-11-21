@@ -101,11 +101,13 @@ async function overviewPage(main) {
     .filter(x => x.days === null || x.days >= 7).sort((a, b) => (b.days ?? 1e9) - (a.days ?? 1e9));
 
   const first = state.user.full_name.replace(/^(Dr\.?|د\.)\s*/i, '').split(' ')[0];
+  const nothingYet = !doctors.some(d => d.stats.total > 0) && !upcoming.length;
   main.innerHTML = `
     <div class="head">
       <div><h1>${t('ov.title')}</h1><p class="muted" dir="auto">${esc(t('ov.hello', { name: first }))} · ${fmtDay(td, { weekday: 'long', day: 'numeric', month: 'long' })}</p></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn ghost" href="#/schedule">${t('ov.toSchedule')}</a><a class="btn" href="#/report">${t('ov.toReport')}</a></div>
     </div>
+    ${nothingYet ? firstDayCard(doctors.length) : ''}
     <div class="stats">
       ${kpi(thisWeek.length, t('ov.kpi.week'), delta(thisWeek.length, lastWeekSoFar.length))}
       ${kpi(thisMonth.length, t('ov.kpi.month'), delta(thisMonth.length, lastMonthSoFar.length))}
@@ -115,8 +117,9 @@ async function overviewPage(main) {
     <div class="ov-grid">
       <section class="card ov-wide"><h2 class="card-title">${t('ov.weekly')}</h2><p class="muted small">${t('ov.weeklySub')}</p>${columnChart(weeks, t('ov.weekly'))}</section>
       <section class="card"><h2 class="card-title">${t('ov.attention')}</h2><p class="muted small">${t('ov.attentionSub')}</p>
-        ${quiet.length ? `<ul class="alerts">${quiet.map(({ d, days }) => `<li><span class="alert-icon" aria-hidden="true">⚠</span><a href="#/doctors/${d.id}" dir="auto">${esc(d.full_name)}</a><span class="muted small">${days === null ? t('ov.never') : t('ov.daysAgo', { n: days })}</span></li>`).join('')}</ul>`
-          : `<p class="ok-line">✓ ${t('ov.allActive')}</p>`}
+        ${quiet.length ? `<ul class="alerts">${quiet.map(({ d, days }) => `<li><span class="alert-icon" aria-hidden="true">⚠</span><span><a href="#/doctors/${d.id}" dir="auto">${esc(d.full_name)}</a><br><span class="muted small">${days === null ? t('ov.never') : t('ov.daysAgo', { n: days })}</span></span>
+          <button type="button" class="btn ghost sm" data-remind="${d.id}" data-days="${days ?? ''}">${t('remind.btn')}</button></li>`).join('')}</ul>`
+          : active.length ? `<p class="ok-line">✓ ${t('ov.allActive')}</p>` : `<p class="muted small">${t('ov.noData')}</p>`}
       </section>
       <section class="card"><h2 class="card-title">${t('ov.byDoctor')}</h2><p class="muted small">${t('ov.thisMonthSub')}</p>${barList(perDoctor, t('ov.noData'))}</section>
       <section class="card"><h2 class="card-title">${t('ov.types')}</h2><p class="muted small">${t('ov.thisMonthSub')}</p>${typeSplit(thisMonth)}
@@ -130,6 +133,41 @@ async function overviewPage(main) {
           : `<p class="muted small">${t('ov.nothingBooked')} <a href="#/schedule">${t('ov.toSchedule')}</a></p>`}
       </section>
     </div>`;
+  wireReminders(main, doctors);
+}
+
+// Shown on the Overview until anything has been logged or booked.
+function firstDayCard(doctorCount) {
+  const step = (n, done, href, title, sub) => `<li class="${done ? 'done' : ''}"><span class="step-n">${done ? '✓' : n}</span>
+    <span><a href="${href}"><b>${t(title)}</b></a><br><span class="muted small">${t(sub)}</span></span></li>`;
+  return `<section class="card first-day">
+    <h2>${t('first.title')}</h2><p class="muted">${t('first.sub')}</p>
+    <ol class="steps">
+      ${step(1, doctorCount > 0, '#/doctors', 'first.step1', 'first.step1sub')}
+      ${step(2, false, '#/schedule', 'first.step2', 'first.step2sub')}
+      ${step(3, false, '#/sessions', 'first.step3', 'first.step3sub')}
+    </ol></section>`;
+}
+
+// ---------- reminding a doctor (opens WhatsApp with a ready message; nothing is sent automatically) ----------
+function waNumber(phone) {
+  let d = String(phone || '').replace(/[^\d+]/g, '');
+  if (d.startsWith('+')) d = d.slice(1);
+  else if (d.startsWith('00')) d = d.slice(2);
+  else if (/^0\d{10}$/.test(d)) d = '20' + d.slice(1); // Egyptian mobile 01xxxxxxxxx -> 201xxxxxxxxx
+  return /^\d{8,15}$/.test(d) ? d : null;
+}
+function remindDoctor(d, days) {
+  const name = String(d.full_name || '').replace(/^(Dr\.?|د\.)\s*/i, '').split(' ')[0];
+  const text = days === null || days === '' ? t('remind.never', { name }) : t('remind.days', { name, n: days });
+  const num = waNumber(d.phone);
+  if (num) { window.open(`https://wa.me/${num}?text=${encodeURIComponent(text)}`, '_blank', 'noopener'); return; }
+  navigator.clipboard?.writeText(text);
+  toast(t('remind.copied'));
+}
+function wireReminders(root, doctors) {
+  root.querySelectorAll('[data-remind]').forEach(b => b.onclick = () =>
+    remindDoctor(doctors.find(d => d.id === b.dataset.remind), b.dataset.days === '' ? null : Number(b.dataset.days)));
 }
 
 // ---------- Monthly report ----------
@@ -181,6 +219,7 @@ async function reportPage(main, arg) {
         ${kpi(fmtNum(hours), t('rep.hours'))}
         ${kpi(`<bdi dir="ltr">${rows.filter(r => r.n).length} / ${doctors.filter(d => d.active).length}</bdi>`, t('rep.activeDoctors'))}
       </div>
+      ${m.length ? '' : `<p class="empty-note">${t('rep.empty', { month: esc(monthName) })}</p>`}
       <h3 class="rep-section">${t('rep.byDoctor')}</h3>
       <div class="table-wrap"><table class="rep-table"><thead><tr><th>${t('th.doctor')}</th><th>${t('rep.sessions')}</th><th>${t('rep.patients')}</th><th>${t('rep.hours')}</th>
         ${TYPE_ORDER.map(k => `<th>${esc(typeLabel(k))}</th>`).join('')}<th>${t('profile.last')}</th></tr></thead><tbody>

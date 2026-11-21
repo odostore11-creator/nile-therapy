@@ -51,4 +51,11 @@ mark = trim(clear.crop((0, 0, im.width, 392)), pad=4)  # the house/figures/river
 fit(full, w=560).save(f'{out}/logo-full.png', optimize=True)   # login page (shown at ~280px, 2x sharp)
 square(mark, 192).save(f'{out}/logo-mark.png', optimize=True)  # sidebar (shown at 40px) + apple-touch
 square(mark, 64, pad_ratio=0.02).save(f'{out}/favicon.png', optimize=True)
+# Home-screen app icons: the mark on a solid white square (phones fill transparent areas with black).
+# 20% padding keeps it inside the "safe zone" when Android crops icons into circles.
+for size in (192, 512):
+    icon = Image.new('RGBA', (size, size), (255, 255, 255, 255))
+    m = square(mark, size, pad_ratio=0.2)
+    icon.alpha_composite(m)
+    icon.convert('RGB').save(f'{out}/icon-{size}.png', optimize=True)
 print('full', full.size, 'mark', mark.size)
