@@ -27,7 +27,9 @@ function loadLeaflet() {
 }
 function makeMap(el, { center = [30.06, 31.3], zoom = 10 } = {}) {
   const map = L.map(el, { scrollWheelZoom: true }).setView(center, zoom);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' }).addTo(map);
+  // OpenStreetMap blocks tiles that don't say which site they're for, and the portal hides that by
+  // default (meta referrer). 'origin' sends only the site address, never the page or any data.
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, referrerPolicy: 'origin', attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' }).addTo(map);
   setTimeout(() => map.invalidateSize(), 50);
   return map;
 }
@@ -51,7 +53,7 @@ const requestState = r => (r.status === 'cancelled' ? 'cancelled' : r.status !==
 
 async function geocode(q) {
   const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=eg&accept-language=${LANG}&q=${encodeURIComponent(q)}`;
-  const r = await fetch(url).catch(() => null);
+  const r = await fetch(url, { referrerPolicy: 'origin' }).catch(() => null); // Nominatim also requires knowing the site
   if (!r?.ok) throw new Error(t('map.searchFailed'));
   return (await r.json()).map(x => ({ name: x.display_name, lat: +x.lat, lng: +x.lon }));
 }
