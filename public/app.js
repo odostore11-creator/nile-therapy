@@ -18,7 +18,12 @@ function render() {
   document.querySelectorAll('.modal-bg').forEach(m => m.remove());
   if (!state.user) return renderLogin();
   const [page, arg] = route();
-  if (state.user.role === 'doctor') return page === 'schedule' ? shell('schedule', schedulePage) : shell('log', doctorPortal);
+  if (state.user.role === 'doctor') {
+    if (page === 'schedule') return shell('schedule', schedulePage);
+    if (page === 'requests') return shell('requests', openPatientsPage);
+    return shell('log', doctorPortal);
+  }
+  if (page === 'coverage') return shell('coverage', coveragePage);
   if (page === 'doctors' && arg) return shell('doctors', el => doctorProfile(el, arg));
   if (page === 'doctors') return shell('doctors', doctorsPage);
   if (page === 'sessions') return shell('sessions', sessionsPage);
@@ -84,9 +89,10 @@ function shell(active, renderPage) {
   const u = state.user;
   const nav = u.role === 'admin'
     ? [['overview', t('nav.overview'), icons.overview], ['sessions', t('nav.sessions'), icons.sessions], ['schedule', t('nav.schedule'), icons.schedule],
+       ['coverage', t('nav.coverage'), icons.map],
        ['doctors', t('nav.doctors'), icons.doctors], ['report', t('nav.report'), icons.report], ['history', t('nav.history'), icons.history],
        ['chat', t('nav.chat'), icons.chat]]
-    : [['log', t('nav.log'), icons.log], ['schedule', t('nav.mySchedule'), icons.schedule]];
+    : [['log', t('nav.log'), icons.log], ['schedule', t('nav.mySchedule'), icons.schedule], ['requests', t('nav.openPatients'), icons.inbox]];
   $app.innerHTML = `
   <div class="shell">
     <aside class="side">
