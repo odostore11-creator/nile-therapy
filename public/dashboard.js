@@ -75,11 +75,11 @@ async function overviewPage(main) {
   main.innerHTML = `<div class="empty">${t('common.loading')}</div>`;
   const td = today(), wk = weekStart(td), ms = monthStartOf(td), lastMs = shiftMonth(td.slice(0, 7), -1) + '-01';
   const from12 = addDays(wk, -7 * 11);
-  let doctors, sessions, upcoming, waitingForFounders;
+  let doctors, sessions, upcoming;
   try {
-    [doctors, sessions, upcoming, waitingForFounders] = await Promise.all([
+    [doctors, sessions, upcoming] = await Promise.all([
       listDoctors(), listSessions({ from: from12 < lastMs ? from12 : lastMs }),
-      listAppointments({ from: td, to: addDays(td, 6), statuses: ['planned'] }), foundersAttention(),
+      listAppointments({ from: td, to: addDays(td, 6), statuses: ['planned'] }),
     ]);
   } catch (err) { main.innerHTML = `<div class="card empty">${esc(err.message)}</div>`; return; }
 
@@ -107,9 +107,6 @@ async function overviewPage(main) {
       <div><h1>${t('ov.title')}</h1><p class="muted" dir="auto">${esc(t('ov.hello', { name: first }))} · ${fmtDay(td, { weekday: 'long', day: 'numeric', month: 'long' })}</p></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn ghost" href="#/schedule">${t('ov.toSchedule')}</a><a class="btn" href="#/report">${t('ov.toReport')}</a></div>
     </div>
-    ${waitingForFounders.length ? `<a class="card attention-card" href="#/coverage"><span class="alert-icon" aria-hidden="true">⚠</span>
-      <span><b>${t('ov.needFounders', { n: waitingForFounders.length })}</b><br><span class="small" dir="auto">${waitingForFounders.slice(0, 3).map(r => esc(r.patient_name)).join(' · ')}</span></span>
-      <span class="btn sm">${t('ov.openCoverage')}</span></a>` : ''}
     ${nothingYet ? firstDayCard(doctors.length) : ''}
     <div class="stats">
       ${kpi(thisWeek.length, t('ov.kpi.week'), delta(thisWeek.length, lastWeekSoFar.length))}

@@ -200,7 +200,7 @@ const STRINGS = {
     'voice.noMic': 'No microphone was found. Check that one is connected and allowed.',
     'voice.noLang': "This browser can't dictate in this language. Try the other language or Google Chrome.",
     'voice.noSpeech': "I didn't hear anything. Press 🎤 and start speaking.",
-    'nav.coverage': 'Coverage map', 'nav.openPatients': 'Open patients',
+    'nav.coverage': 'Coverage map', 'nav.openPatients': 'My map',
     'map.loadFailed': "The map couldn't load. Check your internet connection and refresh.",
     'map.searchFailed': "Address search isn't available right now. Click the map to place the pin instead.",
     'cov.title': 'Coverage map', 'cov.sub': "Each doctor's area, and where new patients are. New patients go to the nearest doctor with room that day.",
@@ -231,7 +231,7 @@ const STRINGS = {
     'req.st.assigned': 'Booked with {name} (nearest)', 'req.st.claimed': 'Taken by {name}', 'req.st.founder_assigned': 'Assigned to {name} by a founder',
     'req.st.waiting': 'Waiting for a doctor, {n} min left', 'req.st.overdue': 'Nobody took it in 2 hours', 'req.st.outOfArea': 'Outside every area', 'req.st.cancelled': 'Cancelled',
     'req.nearest': 'nearest: {name}, {km} km',
-    'open.title': 'Open patients', 'open.sub': 'Patients whose nearest doctor is full. Take one if you have room; you can have up to {limit} visits a day.',
+    'open.title': 'My map', 'open.sub': 'Your area, your booked patients, and open patients whose nearest doctor is full. You can have up to {limit} visits a day.',
     'open.none': 'No open patients right now. They show up here when a nearby doctor is full.',
     'open.inside': 'Inside your area', 'open.km': '{km} km from your area', 'open.noArea': 'You have no area set yet', 'open.left': '{n} min left',
     'open.take': 'Take this patient', 'open.takeQ': 'Take {name}?', 'open.takeMsg': 'The visit is added to your schedule.', 'open.taken': 'Added to your schedule', 'open.myArea': 'Your area',
@@ -244,6 +244,13 @@ const STRINGS = {
     'err.mapLink': 'Add the location link (a Google Maps link, or press Use my location).',
     'err.mapLinkBad': 'The location link must start with https:// (copy it from Google Maps → Share).',
     'sched.status.logged': 'Logged', 'cov.legend.doneHelp': '',
+    'alert.doctor': 'Open patients waiting for a doctor: {n}', 'alert.doctorBtn': 'See and take',
+    'alert.founders': 'Nobody took {n} patient request(s) in 2 hours. Assign a doctor.', 'alert.foundersBtn': 'Open the map',
+    'alert.doctorNew': 'A new open patient needs a doctor.', 'alert.foundersNew': 'A patient request now needs the founders.',
+    'req.useCoords': 'Use these coordinates', 'req.searching': 'Searching…', 'cov.searchPlace': 'Search a place or paste coordinates…',
+    'cov.drawMode': 'Drawing tool', 'cov.modeDots': 'Dots', 'cov.modeLasso': 'Lasso', 'cov.addCorner': 'Add a corner here',
+    'cov.lassoHelp': 'Hold and draw the outline on the map. It turns into dots you can adjust.', 'cov.lassoDone': 'Outline drawn. Drag the dots, or tap + to add a corner.',
+    'open.legendMine': 'My booked patients', 'open.legendOpen': 'Open patients', 'open.listTitle': 'Open patients you can take',
   },
 
   ar: {
@@ -442,7 +449,7 @@ const STRINGS = {
     'voice.noMic': 'لم يتم العثور على ميكروفون. تأكد من توصيله والسماح به.',
     'voice.noLang': 'هذا المتصفح لا يدعم الإملاء بهذه اللغة. جرّب اللغة الأخرى أو Google Chrome.',
     'voice.noSpeech': 'لم أسمع شيئاً. اضغط 🎤 وابدأ الكلام.',
-    'nav.coverage': 'خريطة التغطية', 'nav.openPatients': 'مرضى متاحون',
+    'nav.coverage': 'خريطة التغطية', 'nav.openPatients': 'خريطتي',
     'map.loadFailed': 'تعذّر تحميل الخريطة. تحقق من الإنترنت وأعد تحميل الصفحة.',
     'map.searchFailed': 'البحث عن العناوين غير متاح الآن. اضغط على الخريطة لوضع العلامة.',
     'cov.title': 'خريطة التغطية', 'cov.sub': 'منطقة كل طبيب ومواقع المرضى الجدد. يذهب المريض الجديد إلى أقرب طبيب لديه مكان في ذلك اليوم.',
@@ -473,7 +480,7 @@ const STRINGS = {
     'req.st.assigned': 'محجوز مع {name} (الأقرب)', 'req.st.claimed': 'أخذه {name}', 'req.st.founder_assigned': 'عيّنه مؤسس إلى {name}',
     'req.st.waiting': 'بانتظار طبيب، متبقٍ {n} دقيقة', 'req.st.overdue': 'لم يأخذه أحد خلال ساعتين', 'req.st.outOfArea': 'خارج كل المناطق', 'req.st.cancelled': 'ملغى',
     'req.nearest': 'الأقرب: {name}، {km} كم',
-    'open.title': 'مرضى متاحون', 'open.sub': 'مرضى أقرب طبيب لهم ممتلئ. خذ مريضاً إذا كان لديك مكان؛ الحد {limit} زيارات في اليوم.',
+    'open.title': 'خريطتي', 'open.sub': 'منطقتك ومرضاك المحجوزون، والمرضى المتاحون الذين أقرب طبيب لهم ممتلئ. الحد {limit} زيارات في اليوم.',
     'open.none': 'لا يوجد مرضى متاحون الآن. يظهرون هنا عندما يكون طبيب قريب ممتلئاً.',
     'open.inside': 'داخل منطقتك', 'open.km': 'على بعد {km} كم من منطقتك', 'open.noArea': 'لم تُحدد منطقتك بعد', 'open.left': 'متبقٍ {n} دقيقة',
     'open.take': 'أخذ هذا المريض', 'open.takeQ': 'أخذ {name}؟', 'open.takeMsg': 'ستُضاف الزيارة إلى جدولك.', 'open.taken': 'أُضيف إلى جدولك', 'open.myArea': 'منطقتك',
@@ -486,6 +493,13 @@ const STRINGS = {
     'err.mapLink': 'أضف رابط الموقع (رابط Google Maps، أو اضغط استخدم موقعي).',
     'err.mapLinkBad': 'يجب أن يبدأ رابط الموقع بـ https:// (انسخه من Google Maps ← مشاركة).',
     'sched.status.logged': 'مُسجّلة', 'cov.legend.doneHelp': '',
+    'alert.doctor': 'مرضى متاحون ينتظرون طبيباً: {n}', 'alert.doctorBtn': 'اعرض وخذ',
+    'alert.founders': 'لم يأخذ أحد {n} من طلبات المرضى خلال ساعتين. عيّن طبيباً.', 'alert.foundersBtn': 'افتح الخريطة',
+    'alert.doctorNew': 'مريض جديد متاح يحتاج طبيباً.', 'alert.foundersNew': 'طلب مريض يحتاج المؤسسين الآن.',
+    'req.useCoords': 'استخدم هذه الإحداثيات', 'req.searching': 'جارٍ البحث…', 'cov.searchPlace': 'ابحث عن مكان أو الصق الإحداثيات…',
+    'cov.drawMode': 'أداة الرسم', 'cov.modeDots': 'نقاط', 'cov.modeLasso': 'رسم حر', 'cov.addCorner': 'أضف نقطة هنا',
+    'cov.lassoHelp': 'اضغط مع الاستمرار وارسم حدود المنطقة على الخريطة. ستتحول إلى نقاط يمكنك تعديلها.', 'cov.lassoDone': 'تم رسم الحدود. اسحب النقاط أو اضغط + لإضافة نقطة.',
+    'open.legendMine': 'مرضاي المحجوزون', 'open.legendOpen': 'مرضى متاحون', 'open.listTitle': 'مرضى متاحون يمكنك أخذهم',
   },
 };
 
@@ -523,8 +537,8 @@ const SERVER_MESSAGES_AR = {
   'Area points must be inside Egypt': 'يجب أن تكون نقاط المنطقة داخل مصر',
 };
 
-let LANG = 'en';
-try { if (localStorage.getItem('nt_lang') === 'ar') LANG = 'ar'; } catch { /* storage blocked: stay English */ }
+let LANG = 'ar'; // Arabic first; English only if this device chose it
+try { if (localStorage.getItem('nt_lang') === 'en') LANG = 'en'; } catch { /* storage blocked: stay Arabic */ }
 
 function t(key, vars) {
   let s = STRINGS[LANG][key] ?? STRINGS.en[key] ?? key;

@@ -16,7 +16,7 @@ async function boot() {
 
 function render() {
   document.querySelectorAll('.modal-bg').forEach(m => m.remove());
-  if (!state.user) return renderLogin();
+  if (!state.user) { stopAlerts(); return renderLogin(); }
   const [page, arg] = route();
   if (state.user.role === 'doctor') {
     if (page === 'schedule') return shell('schedule', schedulePage);
@@ -110,11 +110,12 @@ function shell(active, renderPage) {
       </div>
       </div>
     </aside>
-    <main class="main"><div id="tip"></div><div id="main"></div></main>
+    <main class="main"><div id="alerts"></div><div id="tip"></div><div id="main"></div></main>
   </div>`;
   const side = $app.querySelector('.side'), menuBtn = document.getElementById('menu');
   menuBtn.onclick = () => { const open = side.classList.toggle('open'); menuBtn.setAttribute('aria-expanded', open); menuBtn.textContent = open ? '✕' : '☰'; };
   showInstallTip();
+  startAlerts(); // keeps checking every minute; redraws the alert/badge right away on each page
   wireInstall();
   wireLangButtons();
   document.getElementById('out').onclick = async () => {

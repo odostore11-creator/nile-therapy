@@ -586,3 +586,34 @@ body { background: linear-gradient(180deg, #e7f1fa 0, var(--bg) 380px) no-repeat
   .head .btn { flex: 1; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ---------- live alerts, nav count, smart search, doctor map, lasso ---------- */
+#alerts:empty { display: none; }
+.alert-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 12px 16px; border-radius: var(--radius); text-decoration: none; color: var(--ink); border: 1px solid; box-shadow: var(--shadow); }
+.alert-bar > span:nth-child(2) { flex: 1; min-width: 0; }
+.alert-bar .small { color: var(--muted); }
+.alert-bar.info { background: linear-gradient(135deg, #e6f1f9, #f1f8fc); border-color: #b9d6ea; }
+.alert-bar.danger { background: linear-gradient(135deg, #fdece8, #fbe1db); border-color: #eeb1a5; color: #6e1d14; animation: alert-pulse 2.4s ease-in-out infinite; }
+.alert-bar.danger b { color: var(--danger); }
+.alert-ico { font-size: 22px; line-height: 1; }
+.alert-bar .btn { flex: none; }
+@keyframes alert-pulse { 0%, 100% { box-shadow: var(--shadow); } 50% { box-shadow: 0 0 0 4px rgba(179, 55, 42, .15), var(--shadow); } }
+@media (prefers-reduced-motion: reduce) { .alert-bar.danger { animation: none; } }
+@media (max-width: 640px) { .alert-bar { flex-wrap: wrap; } .alert-bar .btn { width: 100%; text-align: center; } }
+.nav-badge { margin-inline-start: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--water); color: var(--brand-ink); font-size: 12px; font-weight: 700; display: inline-grid; place-items: center; }
+.nav-badge.red { background: var(--danger); color: #fff; }
+.search-box input { width: 100%; }
+.map-search { position: relative; padding: 10px 12px; border-bottom: 1px solid var(--line-soft); }
+.map-search input { width: 100%; }
+.map-search .search-results:not(:empty) { position: absolute; inset-inline: 12px; top: 100%; z-index: 1000; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 6px; box-shadow: 0 10px 30px rgba(15, 58, 102, .18); margin-top: -4px; }
+.search-results button.active { border-color: var(--brand); background: var(--water-soft); }
+.search-results .muted { padding: 6px 4px; font-size: 13px; }
+.section-title { font-size: 17px; margin: 22px 0 10px; color: var(--brand-ink); }
+.leaflet-tooltip.name-tip { padding: 3px 8px; font-size: 12px; border-radius: 8px; border: 0; box-shadow: 0 2px 6px rgba(0, 0, 0, .25); white-space: nowrap; }
+.vertex-mid { background: rgba(255, 255, 255, .85); border: 2px dashed var(--brand); border-radius: 50%; color: var(--brand); font: 700 11px/10px var(--font); text-align: center; cursor: copy; }
+.map.lasso, .map.lasso .leaflet-interactive { cursor: crosshair !important; touch-action: none; }
+.drawbar .seg button { padding: 5px 12px; }
+/* Leaflet places pins/labels with left offsets; keep the map itself left-to-right (labels still use dir="auto"). */
+.leaflet-container { direction: ltr; }
+.leaflet-container .leaflet-tooltip, .leaflet-container .leaflet-popup-content { direction: rtl; }
+[dir="ltr"] .leaflet-container .leaflet-tooltip, [dir="ltr"] .leaflet-container .leaflet-popup-content { direction: ltr; }
