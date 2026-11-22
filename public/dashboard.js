@@ -18,7 +18,7 @@ function delta(now, before, label = t('ov.vsBefore')) {
   if (!before) return `<span class="delta up">▲ ${t('ov.new')}</span>`;
   const d = Math.round(((now - before) / before) * 100);
   if (d === 0) return `<span class="delta">= ${t('ov.same')}</span>`;
-  return `<span class="delta ${d > 0 ? 'up' : 'down'}">${d > 0 ? '▲' : '▼'} <bdi dir="ltr">${Math.abs(d)}%</bdi> ${label}</span>`;
+  return `<span class="delta ${d > 0 ? 'up' : 'down'}" title="${esc(label)}">${d > 0 ? '▲' : '▼'} <bdi dir="ltr">${Math.abs(d)}%</bdi> <span class="delta-label">${label}</span></span>`;
 }
 const kpi = (n, label, extra = '') => `<div class="stat"><div class="n">${n}</div><div class="l">${label}</div>${extra ? `<div class="kpi-extra">${extra}</div>` : ''}</div>`;
 
@@ -31,7 +31,7 @@ function columnChart(points, caption) {
       <div class="col ${p.current ? 'current' : ''}" title="${esc(p.title)}">
         <span class="v">${i === points.length - 1 || i === top ? fmtNum(p.value) : ''}</span>
         <span class="bar" style="height:${Math.max(p.value ? 3 : 0, (p.value / max) * 100)}%"></span>
-        <span class="x">${points.length > 14 && i % 5 && i !== points.length - 1 ? '' : esc(p.label)}</span>
+        <span class="x ${points.length > 6 && i % 3 && i !== points.length - 1 ? 'skip-phone' : ''}">${points.length > 14 && i % 5 && i !== points.length - 1 ? '' : esc(p.label)}</span>
       </div>`).join('')}</div>
     <details class="as-table"><summary>${t('ov.showNumbers')}</summary>
       <table><tbody>${points.map(p => `<tr><td>${esc(p.title.split(':')[0])}</td><td>${fmtNum(p.value)}</td></tr>`).join('')}</tbody></table>
@@ -125,10 +125,10 @@ async function overviewPage(main) {
       <section class="card"><h2 class="card-title">${t('ov.types')}</h2><p class="muted small">${t('ov.thisMonthSub')}</p>${typeSplit(thisMonth)}
         <h3 class="sub-title">${t('ov.areas')}</h3>${barList(topAreas(thisMonth), t('ov.noData'))}</section>
       <section class="card ov-wide"><h2 class="card-title">${t('ov.coming')}</h2>
-        ${upcoming.length ? `<div class="table-wrap"><table><thead><tr><th>${t('th.date')}</th><th>${t('th.doctor')}</th><th>${t('th.patient')}</th><th>${t('th.type')}</th><th>${t('th.location')}</th></tr></thead><tbody>
-          ${upcoming.slice(0, 12).map(a => `<tr><td style="white-space:nowrap">${fmtDay(a.appt_date, { weekday: 'short', day: 'numeric', month: 'short' })}<div class="muted small">${esc(a.appt_time)}</div></td>
-            <td dir="auto">${esc(a.doctor_name)}</td><td dir="auto"><strong>${esc(a.patient_name)}</strong></td>
-            <td>${a.session_type ? `<span class="pill ${typeClass(a.session_type)}">${esc(typeLabel(a.session_type))}</span>` : ''}</td><td dir="auto">${esc(a.location)}</td></tr>`).join('')}
+        ${upcoming.length ? `<div class="table-wrap cards"><table><thead><tr><th>${t('th.date')}</th><th>${t('th.doctor')}</th><th>${t('th.patient')}</th><th>${t('th.type')}</th><th>${t('th.location')}</th></tr></thead><tbody>
+          ${upcoming.slice(0, 12).map(a => `<tr><td class="c-date" style="white-space:nowrap">${fmtDay(a.appt_date, { weekday: 'short', day: 'numeric', month: 'short' })}<span class="muted small c-time">${esc(a.appt_time)}</span></td>
+            <td class="c-doctor" dir="auto">${esc(a.doctor_name)}</td><td class="c-patient" dir="auto"><strong>${esc(a.patient_name)}</strong></td>
+            <td class="c-type">${a.session_type ? `<span class="pill ${typeClass(a.session_type)}">${esc(typeLabel(a.session_type))}</span>` : ''}</td><td class="c-loc" dir="auto">${esc(a.location)}</td></tr>`).join('')}
           </tbody></table></div>${upcoming.length > 12 ? `<p class="muted small">${t('ov.more', { n: upcoming.length - 12 })}</p>` : ''}`
           : `<p class="muted small">${t('ov.nothingBooked')} <a href="#/schedule">${t('ov.toSchedule')}</a></p>`}
       </section>

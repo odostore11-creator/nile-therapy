@@ -59,12 +59,12 @@ async function chatPage(main) {
         <div class="pending-files" id="pending" hidden></div>
         <form class="composer" id="send">
           <div class="composer-tools">
-            <button type="button" class="tool-btn" id="attach" title="${esc(t('files.attach'))}" aria-label="${esc(t('files.attach'))}">📎</button>
-            <button type="button" class="tool-btn" id="mic" aria-label="${esc(t('voice.start'))}">🎤</button>
+            <button type="button" class="tool-btn" id="attach" title="${esc(t('files.attach'))}" aria-label="${esc(t('files.attach'))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m21 11.5-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l9.2-9.2a3.7 3.7 0 0 1 5.2 5.2l-9.2 9.2a1.8 1.8 0 0 1-2.6-2.6l8.5-8.5"/></svg></button>
+            <button type="button" class="tool-btn" id="mic" aria-label="${esc(t('voice.start'))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="2.5" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3.5"/></svg></button>
             <button type="button" class="tool-btn lang-mini" id="miclang"></button>
           </div>
           <input type="file" id="files" multiple accept="${CHAT_ACCEPT}" hidden>
-          <textarea id="input" rows="1" dir="auto" aria-label="${esc(t('chat.send'))}" placeholder="${esc(t('chat.input.ph'))}"></textarea>
+          <textarea id="input" rows="1" dir="auto" aria-label="${esc(t('chat.send'))}" placeholder="${esc(chatPlaceholder())}"></textarea>
           <button class="btn" id="sendbtn">${t('chat.send')}</button>
         </form>
         <p class="composer-note muted small">${t('files.note')}</p>

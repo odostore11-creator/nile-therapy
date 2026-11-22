@@ -52,17 +52,17 @@ function editSessionModal(s, onDone) {
 
 function sessionRows(list, { showDoctor = true, editable = false } = {}) {
   if (!list.length) return `<div class="empty">${t('table.empty')}</div>`;
-  return `<div class="table-wrap"><table>
+  return `<div class="table-wrap cards"><table>
     <thead><tr><th>${t('th.date')}</th>${showDoctor ? `<th>${t('th.doctor')}</th>` : ''}<th>${t('th.patient')}</th><th>${t('th.type')}</th><th>${t('th.location')}</th><th>${t('th.min')}</th><th>${t('th.notes')}</th>${editable ? '<th></th>' : ''}</tr></thead>
     <tbody>${list.map(s => `<tr>
-      <td style="white-space:nowrap">${fmtDate(s.session_date)}<div class="muted small">${esc(s.session_time)}</div></td>
-      ${showDoctor ? `<td><a href="#/doctors/${s.doctor_id}" dir="auto">${esc(s.doctor_name)}</a></td>` : ''}
-      <td dir="auto" style="white-space:nowrap"><strong>${esc(s.patient_name)}</strong></td>
-      <td>${s.session_type ? `<span class="pill ${typeClass(s.session_type)}">${esc(typeLabel(s.session_type))}</span>` : ''}</td>
-      <td dir="auto">${esc(s.location)}</td>
-      <td>${esc(s.duration_min ?? '')}</td>
-      <td dir="auto" class="small">${esc(s.notes)}</td>
-      ${editable ? `<td><button class="btn ghost sm" data-edit="${s.id}">${t('common.edit')}</button></td>` : ''}
+      <td class="c-date" style="white-space:nowrap">${fmtDate(s.session_date)}<span class="muted small c-time">${esc(s.session_time)}</span></td>
+      ${showDoctor ? `<td class="c-doctor"><a href="#/doctors/${s.doctor_id}" dir="auto">${esc(s.doctor_name)}</a></td>` : ''}
+      <td class="c-patient" dir="auto" style="white-space:nowrap"><strong>${esc(s.patient_name)}</strong></td>
+      <td class="c-type">${s.session_type ? `<span class="pill ${typeClass(s.session_type)}">${esc(typeLabel(s.session_type))}</span>` : ''}</td>
+      <td class="c-loc" dir="auto">${esc(s.location)}</td>
+      <td class="c-min" data-unit="${esc(t('th.min'))}">${esc(s.duration_min ?? '')}</td>
+      <td class="c-notes small" dir="auto">${esc(s.notes)}</td>
+      ${editable ? `<td class="c-edit"><button class="btn ghost sm" data-edit="${s.id}">${t('common.edit')}</button></td>` : ''}
     </tr>`).join('')}</tbody></table></div>`;
 }
 

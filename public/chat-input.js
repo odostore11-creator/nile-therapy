@@ -59,9 +59,14 @@ async function wireAttachments(root) {
   root.querySelectorAll('[data-open]').forEach(b => b.onclick = () => openChatFile(b.dataset.open));
   const imgs = [...root.querySelectorAll('img[data-path]')];
   if (!imgs.length) return;
+  // If a picture can't be shown (e.g. deleted), show its name as a normal file chip instead.
+  imgs.forEach(i => { i.onerror = () => { const b = i.closest('.msg-thumb'); b.className = 'file-chip'; b.innerHTML = `<span aria-hidden="true">🖼️</span><span class="fname">${esc(b.title)}</span>`; }; });
   const { data } = await sb.storage.from('chat-files').createSignedUrls(imgs.map(i => i.dataset.path), 3600);
   (data || []).forEach((d, i) => { if (d.signedUrl) imgs[i].src = d.signedUrl; });
 }
+
+/** A short hint on phones (where Enter/Shift+Enter tips don't apply), the full one on computers. */
+const chatPlaceholder = () => t(matchMedia('(max-width: 980px)').matches ? 'chat.input.phShort' : 'chat.input.ph');
 
 // ---------- voice dictation ----------
 const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -82,7 +87,7 @@ function setupDictation(micBtn, langBtn, input) {
     showLang();
     if (rec) { rec.stop(); }
   };
-  const setOn = on => { micBtn.classList.toggle('listening', on); micBtn.setAttribute('aria-pressed', on); micBtn.title = t(on ? 'voice.stop' : 'voice.start'); input.placeholder = on ? t('voice.listening') : t('chat.input.ph'); };
+  const setOn = on => { micBtn.classList.toggle('listening', on); micBtn.setAttribute('aria-pressed', on); micBtn.title = t(on ? 'voice.stop' : 'voice.start'); input.placeholder = on ? t('voice.listening') : chatPlaceholder(); };
   micBtn.onclick = () => {
     if (rec) { rec.stop(); return; }
     rec = new SpeechRec();

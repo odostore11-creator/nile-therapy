@@ -131,6 +131,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--b
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th { text-align: start; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 td { padding: 12px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+.c-time { display: block; }
 tr:last-child td { border-bottom: 0; }
 tbody tr:hover { background: #f7fafd; }
 .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--leaf-soft); color: var(--leaf-ink); white-space: nowrap; }
@@ -388,6 +389,43 @@ html[lang="ar"] th { letter-spacing: 0; text-transform: none; font-size: 13px; }
 html[lang="ar"] h1 { letter-spacing: 0; }
 [dir="rtl"] .nav.on { box-shadow: inset -3px 0 0 var(--water); }
 
+/* ---------- gradients (same brand colors, softly blended) ----------
+   White text was checked on every gradient color: at least 4.8:1 (WCAG AA needs 4.5). */
+:root {
+  --grad-brand: linear-gradient(135deg, #1a5fa8 0%, #0a78b4 100%);
+  --grad-brand-hover: linear-gradient(135deg, #154f8d 0%, #08679b 100%);
+  --grad-navy: linear-gradient(170deg, #0f3a66 0%, #134a85 55%, #1a5fa8 100%);
+  --grad-water: linear-gradient(160deg, #e6f1f9 0%, #d3e8f4 55%, #e8f4e2 100%);
+}
+body { background: linear-gradient(180deg, #e7f1fa 0, var(--bg) 380px) no-repeat, var(--bg); }
+.side { background: var(--grad-navy); }
+.btn { background: var(--grad-brand); }
+.btn:hover { background: var(--grad-brand-hover); }
+.btn.ghost, .btn.danger { background: var(--surface); }
+.btn.ghost:hover { background: var(--water-soft); }
+.btn-red, .btn-red:hover { background: linear-gradient(135deg, #b3372a, #962b20); }
+.login-art { background: var(--grad-water); }
+.nav.on { background: linear-gradient(90deg, rgba(147, 196, 220, .3), rgba(147, 196, 220, .08)); }
+[dir="rtl"] .nav.on { background: linear-gradient(270deg, rgba(147, 196, 220, .3), rgba(147, 196, 220, .08)); }
+.stat { border-top-width: 1px; border-top-color: var(--line); position: relative; overflow: hidden; padding-top: 19px; }
+.stat::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 4px; background: linear-gradient(90deg, var(--water), var(--river)); }
+.stat:nth-child(2)::before { background: linear-gradient(90deg, #b5dba4, var(--leaf)); }
+.stat:nth-child(3)::before { background: linear-gradient(90deg, #f4ad9e, var(--coral)); }
+.stat:nth-child(4)::before { background: linear-gradient(90deg, #8fb3b3, var(--roof)); }
+.stat:nth-child(5)::before { background: linear-gradient(90deg, var(--water), var(--brand)); }
+.col .bar { background: linear-gradient(to top, #93c4dc, #c6e1ef); }
+.col.current .bar { background: linear-gradient(to top, #0f3a66, #1a5fa8); }
+.col:hover .bar { background: linear-gradient(to top, #0a78b4, #6fb3d8); }
+.bl-bar { background: linear-gradient(90deg, #1a5fa8, #3a9fd0); }
+.msg.user { background: var(--grad-brand); }
+.avatar { background: linear-gradient(135deg, #f1f7fc, #cfe4f1); }
+.step-n { background: var(--grad-brand); }
+.day.today { background: linear-gradient(180deg, #e6f1f9 0, var(--surface) 120px); }
+.first-day { background: linear-gradient(135deg, #e6f1f9 0%, #f4f9fd 55%, #eef7ea 100%); }
+#toast { background: var(--grad-navy); }
+.tool-btn svg { width: 20px; height: 20px; color: var(--brand); }
+.tool-btn.listening svg { color: #fff; }
+
 /* ---------- responsive ---------- */
 @media (max-width: 980px) {
   .login { grid-template-columns: 1fr; }
@@ -416,7 +454,39 @@ html[lang="ar"] h1 { letter-spacing: 0; }
   h1 { font-size: 22px; }
   .head { margin-bottom: 16px; }
   .stats { grid-template-columns: repeat(2, 1fr); }
-  .portal, .profile, .chat-wrap { grid-template-columns: 1fr; }
+  /* minmax(0, …) lets wide tables scroll inside their card instead of stretching the page */
+  .portal, .profile, .chat-wrap { grid-template-columns: minmax(0, 1fr); }
+  .portal > *, .profile > *, .chat-wrap > * { min-width: 0; }
+  .side { background: linear-gradient(100deg, #0f3a66 0%, #134a85 60%, #1a5fa8 100%); }
+  .m-title { display: none !important; }
+  .side .brand { flex: 1; } .side .brand-name { display: inline; font-size: 17px; }
+  /* page buttons: one tidy row, single line each */
+  .head > div:last-child:not(:first-child) { width: 100%; }
+  .head > div:last-child:not(:first-child) > .btn { flex: 1 1 0; }
+  .head .btn { padding: 10px 12px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .head > .btn { width: 100%; }
+  .card { padding: 16px; }
+  .card.chat, .card.group, .card.hist-list { padding: 0; }
+  /* numbers at the top */
+  .stats { gap: 10px; }
+  .stat { padding: 16px 14px 12px; }
+  .stat .n { font-size: 24px; }
+  .stat .l { font-size: 12.5px; line-height: 1.35; }
+  .delta-label { display: none; }
+  .col .x.skip-phone { visibility: hidden; }
+  /* tables become cards on a phone */
+  .table-wrap.cards table, .table-wrap.cards tbody { display: block; }
+  .table-wrap.cards thead { display: none; }
+  .table-wrap.cards tr { display: grid; grid-template-columns: auto auto 1fr auto; grid-template-areas: "patient patient patient edit" "date date date edit" "doctor doctor doctor doctor" "type loc loc min" "notes notes notes notes"; gap: 4px 10px; padding: 12px 6px; border-bottom: 1px solid var(--line-soft); align-items: center; }
+  .table-wrap.cards tr:last-child { border-bottom: 0; }
+  .table-wrap.cards td { padding: 0; border: 0; white-space: normal !important; }
+  .table-wrap.cards td:empty { display: none; }
+  .c-patient { grid-area: patient; font-size: 16px; } .c-date { grid-area: date; color: var(--muted); font-size: 13px; }
+  .c-time { display: inline; margin-inline-start: 6px; } .c-doctor { grid-area: doctor; font-size: 13px; } .c-type { grid-area: type; }
+  .c-loc { grid-area: loc; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+  .c-min { grid-area: min; font-size: 13px; color: var(--muted); white-space: nowrap; } .c-min:not(:empty)::after { content: " " attr(data-unit); }
+  .c-notes { grid-area: notes; color: var(--muted); } .c-edit { grid-area: edit; align-self: center; }
+  .group-head { padding: 12px 14px; }
   /* AI room on a phone: the chat fills the screen under the top bar; memory comes after it. */
   .chat-wrap { height: auto; gap: 14px; }
   .chat { height: calc(100dvh - 56px - 32px); min-height: 420px; border-radius: 12px; }
