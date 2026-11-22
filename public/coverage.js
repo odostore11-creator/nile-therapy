@@ -132,7 +132,7 @@ async function coveragePage(main) {
     </div>
     <div class="cov-grid">
       <section class="card map-card"><div class="map-search"><input id="mapsearch" type="search" dir="auto" enterkeyhint="search" placeholder="${esc(t('cov.searchPlace'))}" aria-label="${esc(t('cov.searchPlace'))}"><div class="search-results" id="mapresults" role="listbox"></div></div><div class="drawbar" id="drawbar" hidden></div><div id="map" class="map" role="region" aria-label="${esc(t('cov.title'))}"></div>
-        <div class="map-legend"><span><i class="check">✓</i>${t('cov.legend.done')}</span><span><i style="background:${REQ_COLORS.waiting}"></i>${t('cov.legend.waiting')}</span><span><i style="background:${REQ_COLORS.founders}"></i>${t('cov.legend.founders')}</span></div></section>
+        <div class="map-legend"><span><i class="check">✓</i>${t('cov.legend.done')}</span><span><i style="background:${REQ_COLORS.waiting}"></i>${t('cov.legend.waiting')}</span><span><i style="background:${REQ_COLORS.founders}"></i>${t('cov.legend.founders')}</span><span><i class="dot"></i>${t('map.legendLogged', { n: LOGGED_DAYS })}</span></div></section>
       <aside class="card cov-side"><h2 class="card-title">${t('cov.areas')}</h2><p class="muted small">${t('cov.areasSub')}</p><div id="doclist"></div></aside>
     </div>
     <section class="card cov-requests">
@@ -147,11 +147,11 @@ async function coveragePage(main) {
   try { await loadLeaflet(); } catch (err) { $('map').innerHTML = `<div class="empty">${esc(err.message)}</div>`; return; }
   const map = makeMap($('map'));
   wireAddressSearch($('mapsearch'), $('mapresults'), x => { map.setView([x.lat, x.lng], 15); $('mapsearch').blur(); });
-  const areaLayer = L.layerGroup().addTo(map), reqLayer = L.layerGroup().addTo(map);
-  let doctors = [], areas = [], requests = [], names = new Map(), drawing = null;
+  const areaLayer = L.layerGroup().addTo(map), sessLayer = L.layerGroup().addTo(map), reqLayer = L.layerGroup().addTo(map);
+  let doctors = [], areas = [], requests = [], logged = [], names = new Map(), drawing = null;
 
   const drawAll = () => {
-    areaLayer.clearLayers(); reqLayer.clearLayers();
+    areaLayer.clearLayers(); reqLayer.clearLayers(); sessLayer.clearLayers();
     const bounds = [];
     for (const a of areas) {
       const d = doctors.find(x => x.id === a.doctor_id); if (!d) continue;
@@ -159,6 +159,8 @@ async function coveragePage(main) {
         .bindTooltip(esc(d.full_name), { sticky: true }).addTo(areaLayer);
       bounds.push(poly.getBounds());
     }
+    // Logged sessions (last 30 days): small dots in the doctor's area color.
+    for (const x of logged) loggedDot(x, areas.find(a => a.doctor_id === x.doctor_id)?.color || '#8a97a5', names.get(x.doctor_id)).addTo(sessLayer);
     for (const r of requests.filter(x => x.status !== 'cancelled')) {
       const { when, status, st } = requestSummary(r, names);
       // Booked patients take their doctor's area color (with a ✓) and show the doctor's name, so it's clear whose they are.
@@ -294,7 +296,7 @@ async function coveragePage(main) {
   }
 
   async function load() {
-    try { [doctors, areas, requests] = await Promise.all([listDoctors(), listAreas(), listRequests()]); }
+    try { [doctors, areas, requests, logged] = await Promise.all([listDoctors(), listAreas(), listRequests(), loggedSessionPins().catch(() => [])]); }
     catch (err) { $('reqlist').innerHTML = `<div class="empty">${esc(err.message)}</div>`; return; }
     names = new Map(doctors.map(d => [d.id, d.full_name]));
     drawAll(); drawDoctors(); drawList();
@@ -393,6 +395,23 @@ async function assignModal(r, doctors, areas, onDone) {
   });
 }
 
+// ---------- logged sessions on the map ----------
+const LOGGED_DAYS = 30;
+/** Logged sessions from the last 30 days whose map link has coordinates (RLS: doctors get only their own). */
+async function loggedSessionPins(doctorId) {
+  let q = sb.from('sessions').select('id, doctor_id, patient_name, session_date, session_time, session_type, location_url')
+    .gte('session_date', addDaysISO(today(), -LOGGED_DAYS)).not('location_url', 'is', null).order('session_date', { ascending: false }).limit(2000);
+  if (doctorId) q = q.eq('doctor_id', doctorId);
+  return check(await q).filter(x => x.session_type !== 'Online').map(x => ({ ...x, ...coordsFromText(x.location_url) })).filter(x => x.lat != null);
+}
+function addDaysISO(day, n) { const d = new Date(day + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+/** A small filled dot in the doctor's color; popup has patient, day and (for founders) the doctor. */
+function loggedDot(x, color, doctorName) {
+  const when = `${fmtDay(x.session_date, { weekday: 'short', day: 'numeric', month: 'short' })}${x.session_time ? ' ' + x.session_time.slice(0, 5) : ''}`;
+  return L.circleMarker([x.lat, x.lng], { radius: 6, color: '#fff', weight: 2, fillColor: color, fillOpacity: 0.9 })
+    .bindPopup(`<b><bdi>${esc(x.patient_name)}</bdi></b><br>${t('map.loggedOn', { when: esc(when) })}${doctorName ? `<br><bdi>${esc(doctorName)}</bdi>` : ''}`);
+}
+
 // ---------- doctors: "My map" (own area, own booked patients, open patients to take) ----------
 /** The doctor's upcoming booked patients that have a known spot: from patient requests (pin) or a map link with coordinates. */
 async function myBookedPins() {
@@ -414,13 +433,13 @@ async function myBookedPins() {
 async function openPatientsPage(main) {
   main.innerHTML = `<div class="head"><div><h1>${t('open.title')}</h1><p class="muted">${t('open.sub', { limit: DAILY_LIMIT })}</p></div></div>
     <div class="card map-card"><div id="map" class="map small-map"></div>
-      <div class="map-legend"><span><i class="check">✓</i>${t('open.legendMine')}</span><span><i style="background:${REQ_COLORS.waiting}"></i>${t('open.legendOpen')}</span></div></div>
+      <div class="map-legend"><span><i class="check">✓</i>${t('open.legendMine')}</span><span><i class="dot"></i>${t('map.legendLogged', { n: LOGGED_DAYS })}</span><span><i style="background:${REQ_COLORS.waiting}"></i>${t('open.legendOpen')}</span></div></div>
     <h2 class="section-title">${t('open.listTitle')}</h2>
     <div id="list" class="open-list"><div class="empty">${t('common.loading')}</div></div>`;
-  let list = [], myArea = null, mine = [];
+  let list = [], myArea = null, mine = [], logged = [];
   try {
-    [list, myArea, mine] = await Promise.all([callRpc('open_requests_for_me', {}),
-      sb.from('doctor_areas').select('coords, color').eq('doctor_id', state.user.id).maybeSingle().then(check), myBookedPins().catch(() => [])]);
+    [list, myArea, mine, logged] = await Promise.all([callRpc('open_requests_for_me', {}),
+      sb.from('doctor_areas').select('coords, color').eq('doctor_id', state.user.id).maybeSingle().then(check), myBookedPins().catch(() => []), loggedSessionPins(state.user.id).catch(() => [])]);
   }
   catch (err) { main.querySelector('#list').innerHTML = `<div class="card empty">${esc(err.message)}</div>`; return; }
   main.querySelector('#list').innerHTML = list.length ? list.map(r => `
@@ -444,8 +463,10 @@ async function openPatientsPage(main) {
   const map = makeMap(main.querySelector('#map'));
   const bounds = [];
   const myColor = myArea?.color || '#1a5fa8';
-  main.querySelector('.map-legend i.check')?.style.setProperty('background', myColor);
+  main.querySelectorAll('.map-legend i.check, .map-legend i.dot').forEach(i => i.style.setProperty('background', myColor));
   if (myArea) bounds.push(L.polygon(toLatLngs(myArea.coords), { color: myColor, weight: 2, fillOpacity: 0.15 }).bindTooltip(t('open.myArea')).addTo(map).getBounds());
+  // Sessions I logged (last 30 days): small dots, name on tap.
+  logged.forEach(x => { loggedDot(x, myColor).addTo(map); bounds.push(L.latLngBounds([[x.lat, x.lng]])); });
   // My booked patients: my color + ✓, with the name (and day) always shown.
   mine.forEach(p => {
     const when = `${fmtDay(p.date, { weekday: 'short', day: 'numeric', month: 'short' })}${p.time ? ' ' + p.time.slice(0, 5) : ''}`;

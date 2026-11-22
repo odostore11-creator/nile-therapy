@@ -617,3 +617,4 @@ body { background: linear-gradient(180deg, #e7f1fa 0, var(--bg) 380px) no-repeat
 .leaflet-container { direction: ltr; }
 .leaflet-container .leaflet-tooltip, .leaflet-container .leaflet-popup-content { direction: rtl; }
 [dir="ltr"] .leaflet-container .leaflet-tooltip, [dir="ltr"] .leaflet-container .leaflet-popup-content { direction: ltr; }
+.map-legend i.dot { width: 9px; height: 9px; background: var(--brand); box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--line); }

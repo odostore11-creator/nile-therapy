@@ -76,7 +76,10 @@ function renderLogin() {
         : /rate limit|too many/i.test(error.message) ? t('err.tooMany') : friendly(error));
       const me = await loadMe();
       if (!me) throw new Error(t('err.accountOff'));
-      if (me.role !== state.loginRole) toast(t(me.role === 'admin' ? 'login.asFounder' : 'login.asDoctor'));
+      if (me.role !== state.loginRole) { // picked the wrong tab: don't let them in
+        await sb.auth.signOut({ scope: 'local' });
+        throw new Error(t(me.role === 'admin' ? 'login.wrongTabFounder' : 'login.wrongTabDoctor'));
+      }
       state.user = me;
       location.hash = me.role === 'admin' ? '#/overview' : '#/log';
       render();

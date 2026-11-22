@@ -19,7 +19,7 @@ const STRINGS = {
     'login.username': 'Username', 'login.password': 'Password',
     'login.ph.admin': 'e.g. abdurrahman', 'login.ph.doctor': 'e.g. dr.mona',
     'login.go.admin': 'Enter admin dashboard', 'login.go.doctor': 'Enter doctor portal',
-    'login.asFounder': 'Signed in as a founder', 'login.asDoctor': 'Signed in as a doctor',
+    'login.wrongTabFounder': 'This is a founder account. Choose "Founder" above, then sign in.', 'login.wrongTabDoctor': 'This is a doctor account. Choose "Doctor" above, then sign in.',
     'role.founder': 'Founder', 'role.doctor': 'Doctor',
 
     'nav.sessions': 'Sessions', 'nav.doctors': 'Doctors', 'nav.chat': 'My AI room', 'nav.log': 'My sessions',
@@ -251,6 +251,7 @@ const STRINGS = {
     'cov.drawMode': 'Drawing tool', 'cov.modeDots': 'Dots', 'cov.modeLasso': 'Lasso', 'cov.addCorner': 'Add a corner here',
     'cov.lassoHelp': 'Hold and draw the outline on the map. It turns into dots you can adjust.', 'cov.lassoDone': 'Outline drawn. Drag the dots, or tap + to add a corner.',
     'open.legendMine': 'My booked patients', 'open.legendOpen': 'Open patients', 'open.listTitle': 'Open patients you can take',
+    'map.legendLogged': 'Logged sessions (last {n} days)', 'map.loggedOn': 'Session logged · {when}',
   },
 
   ar: {
@@ -268,7 +269,7 @@ const STRINGS = {
     'login.username': 'اسم المستخدم', 'login.password': 'كلمة المرور',
     'login.ph.admin': 'abdurrahman', 'login.ph.doctor': 'dr.mona', // the box is left-to-right (usernames are English)
     'login.go.admin': 'الدخول إلى لوحة الإدارة', 'login.go.doctor': 'الدخول إلى بوابة الطبيب',
-    'login.asFounder': 'تم تسجيل الدخول كمؤسس', 'login.asDoctor': 'تم تسجيل الدخول كطبيب',
+    'login.wrongTabFounder': 'هذا حساب مؤسس. اختر «مؤسس» بالأعلى ثم سجّل الدخول.', 'login.wrongTabDoctor': 'هذا حساب طبيب. اختر «طبيب» بالأعلى ثم سجّل الدخول.',
     'role.founder': 'مؤسس', 'role.doctor': 'طبيب',
 
     'nav.sessions': 'الجلسات', 'nav.doctors': 'الأطباء', 'nav.chat': 'مساعدي الذكي', 'nav.log': 'جلساتي',
@@ -500,6 +501,7 @@ const STRINGS = {
     'cov.drawMode': 'أداة الرسم', 'cov.modeDots': 'نقاط', 'cov.modeLasso': 'رسم حر', 'cov.addCorner': 'أضف نقطة هنا',
     'cov.lassoHelp': 'اضغط مع الاستمرار وارسم حدود المنطقة على الخريطة. ستتحول إلى نقاط يمكنك تعديلها.', 'cov.lassoDone': 'تم رسم الحدود. اسحب النقاط أو اضغط + لإضافة نقطة.',
     'open.legendMine': 'مرضاي المحجوزون', 'open.legendOpen': 'مرضى متاحون', 'open.listTitle': 'مرضى متاحون يمكنك أخذهم',
+    'map.legendLogged': 'جلسات مسجّلة (آخر {n} يوماً)', 'map.loggedOn': 'جلسة مسجّلة · {when}',
   },
 };
 
