@@ -34,7 +34,7 @@ function makeMap(el, { center = [30.06, 31.3], zoom = 10 } = {}) {
   return map;
 }
 const toLatLngs = coords => coords.map(([lng, lat]) => [lat, lng]);
-const pinIcon = color => L.divIcon({ className: 'pin', html: `<span style="background:${color}"></span>`, iconSize: [22, 22], iconAnchor: [11, 11] });
+const pinIcon = (color, mark = '') => L.divIcon({ className: 'pin', html: `<span style="background:${color}">${mark}</span>`, iconSize: [22, 22], iconAnchor: [11, 11] });
 
 // ---------- data ----------
 const listAreas = async () => check(await sb.from('doctor_areas').select('doctor_id, coords, color'));
@@ -83,7 +83,7 @@ async function coveragePage(main) {
     </div>
     <div class="cov-grid">
       <section class="card map-card"><div class="drawbar" id="drawbar" hidden></div><div id="map" class="map" role="region" aria-label="${esc(t('cov.title'))}"></div>
-        <div class="map-legend"><span><i style="background:${REQ_COLORS.done}"></i>${t('cov.legend.done')}</span><span><i style="background:${REQ_COLORS.waiting}"></i>${t('cov.legend.waiting')}</span><span><i style="background:${REQ_COLORS.founders}"></i>${t('cov.legend.founders')}</span></div></section>
+        <div class="map-legend"><span><i class="check">✓</i>${t('cov.legend.done')}</span><span><i style="background:${REQ_COLORS.waiting}"></i>${t('cov.legend.waiting')}</span><span><i style="background:${REQ_COLORS.founders}"></i>${t('cov.legend.founders')}</span></div></section>
       <aside class="card cov-side"><h2 class="card-title">${t('cov.areas')}</h2><p class="muted small">${t('cov.areasSub')}</p><div id="doclist"></div></aside>
     </div>
     <section class="card cov-requests">
@@ -111,8 +111,11 @@ async function coveragePage(main) {
     }
     for (const r of requests.filter(x => x.status !== 'cancelled')) {
       const { when, status, st } = requestSummary(r, names);
-      L.marker([r.lat, r.lng], { icon: pinIcon(REQ_COLORS[st]) }).addTo(reqLayer)
+      // Booked patients take their doctor's area color (with a ✓) and show the doctor's name, so it's clear whose they are.
+      const docColor = st === 'done' && areas.find(a => a.doctor_id === r.assigned_doctor_id)?.color;
+      const mk = L.marker([r.lat, r.lng], { icon: docColor ? pinIcon(docColor, '✓') : pinIcon(REQ_COLORS[st]) }).addTo(reqLayer)
         .bindPopup(`<b dir="auto">${esc(r.patient_name)}</b><br>${when}<br>${status}${r.address ? `<br><span dir="auto">${esc(r.address)}</span>` : ''}`);
+      if (st === 'done') mk.bindTooltip(`<bdi>${esc(names.get(r.assigned_doctor_id) || '')}</bdi>`, { direction: 'top', offset: [0, -10] });
     }
     if (bounds.length && !drawing) map.fitBounds(bounds.reduce((b, x) => b.extend(x)), { padding: [20, 20], maxZoom: 12 });
   };
@@ -315,6 +318,7 @@ async function openPatientsPage(main) {
       <div class="open-top"><b dir="auto">${esc(r.patient_name)}</b><span class="pill ${typeClass(r.session_type)}">${esc(typeLabel(r.session_type) || '—')}</span></div>
       <div>${fmtDay(r.preferred_date, { weekday: 'long', day: 'numeric', month: 'long' })}${r.preferred_time ? ' · ' + esc(r.preferred_time.slice(0, 5)) : ''}</div>
       ${r.address ? `<div class="muted small" dir="auto">${esc(r.address)}</div>` : ''}
+      <div class="small">${mapLinkHtml(`https://www.google.com/maps?q=${(+r.lat).toFixed(6)},${(+r.lng).toFixed(6)}`)}</div>
       <div class="small">${r.km == null ? t('open.noArea') : Number(r.km) === 0 ? `📍 ${t('open.inside')}` : `📍 ${t('open.km', { km: r.km })}`}
         · <span class="muted">⏳ ${t('open.left', { n: minutesLeft(r) })}</span></div>
       <button type="button" class="btn block" data-take="${r.id}">${t('open.take')}</button>

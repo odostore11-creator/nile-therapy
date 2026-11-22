@@ -247,8 +247,8 @@ async function reportPage(main, arg) {
       ...rows.map(r => [r.d.full_name, r.n, r.patients, r.hours.toFixed(1), ...r.types, r.last]),
       [t('rep.total'), m.length, patients.size, hours.toFixed(1), ...TYPE_ORDER.map(k => m.filter(s => s.session_type === k).length), ''],
       [], [t('rep.allSessions')],
-      ['session_date', 'session_time', 'doctor_name', 'patient_name', 'session_type', 'location', 'duration_min', 'notes'],
-      ...m.map(s => [s.session_date, s.session_time, s.doctor_name, s.patient_name, s.session_type, s.location, s.duration_min ?? '', s.notes])];
+      ['session_date', 'session_time', 'doctor_name', 'patient_name', 'session_type', 'location', 'location_url', 'duration_min', 'notes'],
+      ...m.map(s => [s.session_date, s.session_time, s.doctor_name, s.patient_name, s.session_type, s.location, s.location_url || '', s.duration_min ?? '', s.notes])];
     const csv = '﻿' + lines.map(l => l.map(csvCell).join(',')).join('\r\n');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));

@@ -35,6 +35,7 @@ function apptPayload(b) {
     appt_date: b.session_date || '', appt_time: b.session_time || null,
     duration_min: b.duration_min === '' || b.duration_min == null ? null : Math.max(0, Math.min(600, parseInt(b.duration_min, 10) || 0)),
   };
+  if ('location_url' in b) p.location_url = checkMapLink(b.location_url, p.session_type);
   if (!p.patient_name) throw new Error(t('err.patient'));
   if (!/^\d{4}-\d{2}-\d{2}$/.test(p.appt_date)) throw new Error(t('err.date'));
   return p;
@@ -62,7 +63,7 @@ async function completeAppointment(a, b) {
   const s = sessionPayload(b);
   check(await sb.rpc('complete_appointment', {
     appt_id: a.id, p_patient_name: s.patient_name, p_location: s.location, p_session_date: s.session_date,
-    p_session_time: s.session_time, p_session_type: s.session_type, p_duration_min: s.duration_min, p_notes: s.notes,
+    p_session_time: s.session_time, p_session_type: s.session_type, p_duration_min: s.duration_min, p_notes: s.notes, p_location_url: s.location_url || '',
   }));
 }
 
@@ -111,7 +112,7 @@ function visitModal(a, onDone, doctors) {
       <dt>${t('form.date')}</dt><dd>${fmtDay(a.appt_date, { weekday: 'long', day: 'numeric', month: 'long' })}</dd>
       <dt>${t('form.time')}</dt><dd>${esc(a.appt_time || '—')}</dd>
       <dt>${t('form.type')}</dt><dd>${esc(typeLabel(a.session_type) || '—')}</dd>
-      <dt>${t('th.location')}</dt><dd dir="auto">${esc(a.location || '—')}</dd>
+      <dt>${t('th.location')}</dt><dd dir="auto">${esc(a.location || '—')}${mapLinkHtml(a.location_url)}</dd>
       <dt>${t('form.minutes')}</dt><dd>${esc(a.duration_min ?? '—')}</dd>
       ${a.notes ? `<dt>${t('form.notes')}</dt><dd dir="auto">${esc(a.notes)}</dd>` : ''}
     </dl>
@@ -142,6 +143,15 @@ function visitModal(a, onDone, doctors) {
 
 const statusBadge = s => `<span class="status ${s}">${s === 'done' ? '✓ ' : s === 'cancelled' ? '✕ ' : '● '}${t('sched.status.' + s)}</span>`;
 
+/** A session that was logged directly (not from a booked visit). Clicking it opens the session to edit. */
+function loggedCard(s, showDoctor) {
+  return `<button type="button" class="appt logged" data-logged="${s.id}">
+    <span class="appt-time">${esc(s.session_time || t('sched.anyTime'))}</span>
+    <strong dir="auto">${esc(s.patient_name)}</strong>
+    ${showDoctor ? `<span class="small muted" dir="auto">${esc(s.doctor_name)}</span>` : ''}
+    <span class="appt-meta">${s.session_type ? `<span class="pill ${typeClass(s.session_type)}">${esc(typeLabel(s.session_type))}</span>` : ''}<span class="status logged">✓ ${t('sched.status.logged')}</span></span>
+  </button>`;
+}
 function apptCard(a, showDoctor) {
   return `<button type="button" class="appt ${a.status}" data-appt="${a.id}">
     <span class="appt-time">${esc(a.appt_time || t('sched.anyTime'))}</span>
@@ -178,25 +188,34 @@ async function schedulePage(main) {
     <div id="weeknote"></div>
     <div id="week" class="week"><div class="empty">${t('common.loading')}</div></div>`;
   const $ = id => main.querySelector('#' + id);
-  let list = [];
+  let list = [], logged = [];
   const load = async () => {
-    const from = state.schedWeek, to = addDays(from, 6);
+    const from = state.schedWeek, to = addDays(from, 6), who = founder ? state.schedDoctor : state.user.id;
     $('range').textContent = `${fmtDay(from, { day: 'numeric', month: 'short' })} – ${fmtDay(to, { day: 'numeric', month: 'short', year: 'numeric' })}`;
     try {
-      list = await listAppointments({ from, to, doctorId: founder ? state.schedDoctor : state.user.id,
-        statuses: state.schedShowCancelled ? null : ['planned', 'done'] });
+      [list, logged] = await Promise.all([
+        listAppointments({ from, to, doctorId: who, statuses: state.schedShowCancelled ? null : ['planned', 'done'] }),
+        listSessions({ from, to, doctorId: who }),
+      ]);
     } catch (err) { $('week').innerHTML = `<div class="card empty">${esc(err.message)}</div>`; return; }
+    // Logged sessions show too, except the ones already shown as a "done" visit.
+    const fromVisits = new Set(list.map(a => a.session_id).filter(Boolean));
+    logged = logged.filter(s => !fromVisits.has(s.id));
     const td = today();
-    $('weeknote').innerHTML = list.some(a => a.status !== 'cancelled') ? '' : `<p class="empty-note">${t('sched.emptyWeek')} <button type="button" class="link" id="book2">${t('sched.book')}</button></p>`;
+    $('weeknote').innerHTML = list.some(a => a.status !== 'cancelled') || logged.length ? '' : `<p class="empty-note">${t('sched.emptyWeek')} <button type="button" class="link" id="book2">${t('sched.book')}</button></p>`;
     $('book2')?.addEventListener('click', () => bookVisitModal(load, { doctors }));
     $('week').innerHTML = Array.from({ length: 7 }, (_, i) => {
-      const day = addDays(from, i), items = list.filter(a => a.appt_date === day);
+      const day = addDays(from, i);
+      const items = [...list.filter(a => a.appt_date === day).map(a => ({ time: a.appt_time, html: apptCard(a, founder) })),
+        ...logged.filter(s => s.session_date === day).map(s => ({ time: s.session_time, html: loggedCard(s, founder) }))]
+        .sort((x, y) => (x.time || '').localeCompare(y.time || ''));
       return `<section class="day ${day === td ? 'today' : ''} ${day < td ? 'past' : ''}" aria-label="${esc(fmtDay(day, { weekday: 'long', day: 'numeric', month: 'long' }))}">
         <header><span>${fmtDay(day, { weekday: 'short' })}</span><b>${fmtDay(day, { day: 'numeric' })}</b>${day === td ? `<em>${t('sched.today')}</em>` : ''}</header>
-        <div class="day-items">${items.length ? items.map(a => apptCard(a, founder)).join('') : '<span class="day-empty">—</span>'}</div>
+        <div class="day-items">${items.length ? items.map(x => x.html).join('') : '<span class="day-empty">—</span>'}</div>
       </section>`;
     }).join('');
     main.querySelectorAll('[data-appt]').forEach(b => b.onclick = () => visitModal(list.find(a => a.id == b.dataset.appt), load, doctors));
+    main.querySelectorAll('[data-logged]').forEach(b => b.onclick = () => editSessionModal(logged.find(s => s.id == b.dataset.logged), load));
   };
   $('prev').onclick = () => { state.schedWeek = addDays(state.schedWeek, -7); load(); };
   $('next').onclick = () => { state.schedWeek = addDays(state.schedWeek, 7); load(); };

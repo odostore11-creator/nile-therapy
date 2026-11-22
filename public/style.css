@@ -432,6 +432,15 @@ html[lang="ar"] h1 { letter-spacing: 0; }
 .attention-card { display: grid; grid-template-columns: 24px 1fr auto; gap: 12px; align-items: center; margin-bottom: 16px; text-decoration: none; color: var(--ink); border-color: #efc9c3; background: linear-gradient(135deg, #fdece8, var(--surface) 70%); }
 .attention-card .alert-icon { font-size: 20px; color: #b3372a; }
 .leaflet-container { font-family: var(--font); }
+.pin span { display: grid; place-items: center; color: #fff; font-size: 12px; font-weight: 700; line-height: 1; }
+.map-legend i.check { background: var(--leaf); color: #fff; font-style: normal; font-size: 8px; display: inline-grid; place-items: center; }
+.map-link { white-space: nowrap; font-weight: 600; text-decoration: none; margin-inline-start: 4px; }
+.map-link:hover { text-decoration: underline; }
+.map-link-field .search-row input { flex: 1; min-width: 0; }
+.here-btn { white-space: nowrap; }
+.appt.logged { border-inline-start-color: var(--water); background: #f8fbfd; }
+.appt.logged .appt-time { color: var(--muted); }
+.status.logged { background: var(--water-soft); color: var(--brand); }
 
 /* ---------- gradients (same brand colors, softly blended) ----------
    White text was checked on every gradient color: at least 4.8:1 (WCAG AA needs 4.5). */
@@ -540,6 +549,8 @@ body { background: linear-gradient(180deg, #e7f1fa 0, var(--bg) 380px) no-repeat
   .attention-card { grid-template-columns: 24px 1fr; }
   .attention-card .btn { grid-column: 1 / -1; }
   .mini-map { height: 200px; }
+  .map-link-field .search-row { flex-wrap: wrap; }
+  .map-link-field .here-btn { flex: 1 1 100%; }
   /* AI room on a phone: the chat fills the screen under the top bar; memory comes after it. */
   .chat-wrap { height: auto; gap: 14px; }
   .chat { height: calc(100dvh - 56px - 32px); min-height: 420px; border-radius: 12px; }

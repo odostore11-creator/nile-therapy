@@ -95,6 +95,16 @@ async function listSessions({ doctorId, from, to, q } = {}) {
     if (rows.length < 1000) return out;
   }
 }
+/** Map links must be https; doctors must give one unless the session is online (the database checks this too). */
+function checkMapLink(raw, type) {
+  const url = String(raw || '').trim();
+  if (url && !/^https:\/\/\S+$/i.test(url)) throw new Error(t('err.mapLinkBad'));
+  if (!url && state.user?.role === 'doctor' && type !== 'Online') throw new Error(t('err.mapLink'));
+  return url;
+}
+/** A small "open in maps" link, only for https links. */
+const mapLinkHtml = url => (/^https:\/\//i.test(url || '') ? ` <a class="map-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">🗺 ${t('form.openMap')}</a>` : '');
+
 function sessionPayload(b) {
   const s = {
     patient_name: String(b.patient_name || '').trim(), location: String(b.location || '').trim(),
@@ -102,6 +112,7 @@ function sessionPayload(b) {
     session_type: b.session_type || '', notes: String(b.notes || '').trim(),
     duration_min: b.duration_min === '' || b.duration_min == null ? null : Math.max(0, Math.min(600, parseInt(b.duration_min, 10) || 0)),
   };
+  if ('location_url' in b) s.location_url = checkMapLink(b.location_url, s.session_type);
   if (!s.patient_name) throw new Error(t('err.patient'));
   if (!s.location) throw new Error(t('err.location'));
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s.session_date)) throw new Error(t('err.date'));
@@ -161,7 +172,7 @@ function csvCell(v) {
 }
 async function downloadCsv(filters) {
   const rows = await listSessions(filters);
-  const cols = ['session_date', 'session_time', 'doctor_name', 'patient_name', 'session_type', 'location', 'duration_min', 'notes', 'created_at'];
+  const cols = ['session_date', 'session_time', 'doctor_name', 'patient_name', 'session_type', 'location', 'location_url', 'duration_min', 'notes', 'created_at'];
   const csv = '\uFEFF' + [cols.join(','), ...rows.map(r => cols.map(c => csvCell(r[c])).join(','))].join('\r\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));

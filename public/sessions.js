@@ -13,6 +13,10 @@ function sessionFormHtml(s = {}, { doctors, future = false } = {}) {
       <div class="type-pick">${SESSION_TYPES.map(v => `<button type="button" data-type="${v}" class="${v === type ? 'on' : ''}" aria-pressed="${v === type}">${typeLabel(v)}</button>`).join('')}</div>
     </div>
     <div class="field"><label>${t('form.where')}</label><input name="location" dir="auto" required value="${esc(s.location)}" placeholder="${esc(t('form.where.ph'))}"></div>
+    <div class="field map-link-field"><label>${t('form.mapLink')} <span class="muted map-link-opt">${t(state.user?.role === 'doctor' && type !== 'Online' ? 'form.mapLink.req' : 'form.optional')}</span></label>
+      <div class="search-row"><input name="location_url" type="url" dir="ltr" inputmode="url" autocomplete="off" value="${esc(s.location_url)}" placeholder="https://maps.app.goo.gl/…">
+        <button type="button" class="btn ghost here-btn" data-here>📍 ${t('form.useHere')}</button></div>
+      <p class="muted small">${t('form.mapLink.help')}</p></div>
     <div class="grid3">
       <div class="field"><label>${t('form.date')}</label><input name="session_date" type="date" required value="${esc(s.session_date || today())}" ${future ? '' : `max="${today()}"`}></div>
       <div class="field"><label>${t('form.time')}</label><input name="session_time" type="time" value="${esc(s.session_time)}"></div>
@@ -26,7 +30,25 @@ function wireTypePick(root) {
     root.querySelector('[name=session_type]').value = b.dataset.type;
     const loc = root.querySelector('[name=location]');
     if (b.dataset.type === 'Online' && !loc.value) loc.value = t('form.videoCall');
+    const opt = root.querySelector('.map-link-opt'); // online sessions don't need a map link
+    if (opt && state.user?.role === 'doctor') opt.textContent = t(b.dataset.type === 'Online' ? 'form.optional' : 'form.mapLink.req');
   });
+  wireMapLink(root);
+}
+// "Use my location": asks the phone/computer for its position and fills in a Google Maps link.
+function wireMapLink(root) {
+  const btn = root.querySelector('[data-here]'); if (!btn) return;
+  if (!navigator.geolocation) { btn.hidden = true; return; }
+  btn.onclick = () => {
+    btn.disabled = true; btn.textContent = t('form.locating');
+    navigator.geolocation.getCurrentPosition(p => {
+      root.querySelector('[name=location_url]').value = `https://www.google.com/maps?q=${p.coords.latitude.toFixed(6)},${p.coords.longitude.toFixed(6)}`;
+      btn.disabled = false; btn.textContent = '📍 ' + t('form.useHere'); toast(t('form.located'));
+    }, err => {
+      btn.disabled = false; btn.textContent = '📍 ' + t('form.useHere');
+      toast(t(err.code === 1 ? 'form.locDenied' : 'form.locFailed'));
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+  };
 }
 function editSessionModal(s, onDone) {
   modal(`<h2>${t('edit.title')}</h2><form>${sessionFormHtml(s)}<div class="error" role="alert"></div>
@@ -59,7 +81,7 @@ function sessionRows(list, { showDoctor = true, editable = false } = {}) {
       ${showDoctor ? `<td class="c-doctor"><a href="#/doctors/${s.doctor_id}" dir="auto">${esc(s.doctor_name)}</a></td>` : ''}
       <td class="c-patient" dir="auto" style="white-space:nowrap"><strong>${esc(s.patient_name)}</strong></td>
       <td class="c-type">${s.session_type ? `<span class="pill ${typeClass(s.session_type)}">${esc(typeLabel(s.session_type))}</span>` : ''}</td>
-      <td class="c-loc" dir="auto">${esc(s.location)}</td>
+      <td class="c-loc" dir="auto">${esc(s.location)}${mapLinkHtml(s.location_url)}</td>
       <td class="c-min" data-unit="${esc(t('th.min'))}">${esc(s.duration_min ?? '')}</td>
       <td class="c-notes small" dir="auto">${esc(s.notes)}</td>
       ${editable ? `<td class="c-edit"><button class="btn ghost sm" data-edit="${s.id}">${t('common.edit')}</button></td>` : ''}
