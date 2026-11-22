@@ -10,8 +10,8 @@ begin
   -- ===== doctor adds, edits and deletes a session =====
   perform set_config('request.jwt.claims', json_build_object('sub', mona, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  insert into public.sessions (doctor_id, patient_name, location, session_date, duration_min)
-    values (mona, 'History test', 'Nasr City', current_date, 45) returning id into sid;
+  insert into public.sessions (doctor_id, patient_name, location, location_url, session_date, duration_min)
+    values (mona, 'History test', 'Nasr City', 'https://maps.app.goo.gl/x', current_date, 45) returning id into sid;
   update public.sessions set duration_min = 60 where id = sid;
   update public.sessions set duration_min = 60 where id = sid;   -- no real change: must not be logged
   delete from public.sessions where id = sid;

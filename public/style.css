@@ -618,3 +618,131 @@ body { background: linear-gradient(180deg, #e7f1fa 0, var(--bg) 380px) no-repeat
 .leaflet-container .leaflet-tooltip, .leaflet-container .leaflet-popup-content { direction: rtl; }
 [dir="ltr"] .leaflet-container .leaflet-tooltip, [dir="ltr"] .leaflet-container .leaflet-popup-content { direction: ltr; }
 .map-legend i.dot { width: 9px; height: 9px; background: var(--brand); box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--line); }
+
+/* ===================== Polish round 2 (2026-11-23) ===================== */
+/* Page and dialog entrance: quick and subtle. */
+.page-in > * { animation: page-in .22s ease-out both; }
+@keyframes page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.modal-bg { animation: fade-in .15s ease-out; }
+.modal { animation: pop-in .18s ease-out; }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes pop-in { from { opacity: 0; transform: translateY(10px) scale(.98); } }
+@media (prefers-reduced-motion: reduce) { .page-in > *, .modal, .modal-bg, .sk-line { animation: none !important; } }
+
+/* Loading placeholders. */
+.skeleton { display: grid; gap: 12px; }
+.skeleton.card { padding: 14px 18px; gap: 0; }
+.sk-head { display: grid; gap: 10px; margin-bottom: 8px; }
+.sk-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.sk-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: grid; gap: 10px; }
+.sk-card.tall { min-height: 200px; align-content: start; }
+.sk-row { display: flex; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+.sk-row:last-child { border-bottom: 0; }
+.sk-line { display: block; height: 12px; border-radius: 6px; background: linear-gradient(90deg, #e9eff5 0%, #f4f7fa 50%, #e9eff5 100%); background-size: 200% 100%; animation: shimmer 1.3s linear infinite; }
+.sk-head .sk-line:first-child { height: 22px; }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (max-width: 980px) { .sk-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Errors: a clear box instead of loose red text. */
+.error:not(:empty) { background: var(--coral-soft); border: 1px solid #f3c2b8; color: #8c2a1c; border-radius: var(--radius-sm); padding: 9px 12px; font-weight: 500; }
+.error:not(:empty)::before { content: "⚠ "; }
+.btn.loading { opacity: .75; cursor: progress; }
+.btn.loading::after { content: ""; width: 14px; height: 14px; border: 2px solid currentColor; border-inline-end-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Cards with a title row. */
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.card-head h2 { font-size: 18px; margin: 0; }
+.today-card, .closing-card { margin-bottom: 20px; }
+.closing-card { border-color: #f0c9a8; background: linear-gradient(180deg, #fff8f1, var(--surface) 60%); }
+.closing-card h2 { color: #8a4b14; }
+.small-empty { padding: 18px; }
+
+/* A visit as a row: time, patient, one big action. */
+.visit-row { display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 4px; border-top: 1px solid var(--line-soft); }
+.visit-row:first-of-type { border-top: 0; }
+.vr-time { display: grid; color: var(--brand-ink); font-weight: 700; font-size: 15px; line-height: 1.2; }
+.vr-time b { font-size: 12px; color: var(--muted); font-weight: 600; }
+.vr-main { display: grid; gap: 2px; min-width: 0; }
+.vr-main b { font-size: 15px; }
+.vr-main .muted { overflow: hidden; text-overflow: ellipsis; }
+.vr-actions { display: flex; gap: 6px; align-items: center; }
+.visit-row.done .vr-main b { color: var(--muted); }
+@media (max-width: 640px) {
+  .visit-row { grid-template-columns: 84px minmax(0, 1fr); }
+  .vr-actions { grid-column: 1 / -1; }
+  .vr-actions .btn:not(.ghost) { flex: 1; padding: 12px; font-size: 15px; }
+}
+
+/* Patient picker. */
+.patient-field { position: relative; }
+.patient-field > .search-results:not(:empty) { position: absolute; inset-inline: 0; top: 70px; z-index: 30; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 6px; box-shadow: 0 12px 30px rgba(15, 58, 102, .16); max-height: 260px; overflow-y: auto; }
+.search-results button { display: block; width: 100%; }
+.search-results .new-patient { color: var(--brand); font-weight: 600; border-style: dashed; }
+.patient-more { margin-top: 8px; }
+.patient-more summary { cursor: pointer; color: var(--brand); font-size: 13px; font-weight: 600; list-style: none; }
+.patient-more summary::-webkit-details-marker { display: none; }
+.patient-more summary::before { content: "＋ "; }
+.patient-more[open] summary::before { content: "－ "; }
+.patient-more .grid2 { margin-top: 10px; }
+.patient-more .field { margin-bottom: 4px; }
+
+/* Booking: how full is the doctor's day. */
+.load-note:not(:empty) { margin: -4px 0 14px; padding: 9px 12px; border-radius: var(--radius-sm); background: var(--water-soft); color: var(--brand-ink); font-size: 13px; line-height: 1.5; }
+.load-note.free { background: var(--leaf-soft); color: var(--leaf-ink); }
+.load-note.warn { background: #fff3e0; color: #7a4510; border: 1px solid #f2cf9c; }
+
+/* Drafts and the offline outbox. */
+.draft-note { margin: 0 0 12px; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--water-soft); font-size: 13px; }
+.link { background: none; border: 0; padding: 0; color: var(--brand); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
+.outbox-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 12px 16px; border-radius: var(--radius); background: #fff8e6; border: 1px solid #f1d48a; }
+.outbox-bar > span:nth-child(2) { flex: 1; min-width: 0; }
+.outbox-bar.bad { background: var(--coral-soft); border-color: #f3c2b8; }
+.outbox-bar .small { color: var(--muted); }
+
+/* Reassigning visits, merging patients. */
+.reassign-list { display: grid; gap: 8px; margin-bottom: 12px; max-height: 45vh; overflow-y: auto; }
+.reassign-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 200px); gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--line-soft); border-radius: var(--radius-sm); font-size: 14px; }
+.merge-box { margin: 6px 0 12px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: var(--radius-sm); }
+.merge-box summary { cursor: pointer; font-weight: 600; color: var(--muted); }
+.merge-box .search-row { margin-top: 8px; }
+.range-hint { margin: -4px 0 12px; }
+
+/* Tables: calmer header, row hover on desktop. */
+@media (hover: hover) { tbody tr:hover td { background: #f7fafd; } }
+th { background: var(--surface-2); }
+
+/* Schedule: a clearer day header. */
+.day header { padding: 10px 12px; background: linear-gradient(180deg, var(--surface-2), var(--surface)); }
+.day.today { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(26, 95, 168, .12); }
+.day.past { opacity: .82; }
+.phone-only { display: none; }
+.past-toggle { margin: 0 0 10px; }
+@media (max-width: 980px) {
+  .phone-only { display: inline-flex; }
+  .week.hide-past .day.past { display: none; }
+}
+
+/* Phone: the alert becomes one compact line. */
+@media (max-width: 640px) {
+  .alert-bar { flex-wrap: nowrap; padding: 8px 12px; gap: 8px; margin-bottom: 12px; animation: none; }
+  .alert-bar .small { display: none; }
+  .alert-bar b { font-size: 13px; line-height: 1.35; }
+  .alert-bar .alert-ico { font-size: 16px; }
+  .alert-bar .btn { width: auto; padding: 6px 12px; font-size: 12px; }
+  .outbox-bar { padding: 10px 12px; }
+  .reassign-row { grid-template-columns: 1fr; }
+}
+
+/* Doctors on phones: a bottom tab bar instead of the menu for the 3 pages. */
+.tabbar { display: none; }
+@media (max-width: 980px) {
+  .doc-shell .nav-list { display: none; }
+  .doc-shell .main { padding-bottom: 96px; }
+  .doc-shell .tabbar { display: grid; grid-template-columns: repeat(3, 1fr); position: fixed; inset-inline: 0; bottom: 0; z-index: 50;
+    background: rgba(255, 255, 255, .96); backdrop-filter: blur(10px); border-top: 1px solid var(--line); padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); box-shadow: 0 -6px 20px rgba(15, 58, 102, .08); }
+  .tab { display: grid; justify-items: center; gap: 3px; padding: 6px 4px; border-radius: 12px; color: var(--muted); text-decoration: none; font-size: 12px; font-weight: 600; position: relative; }
+  .tab svg { width: 24px; height: 24px; }
+  .tab.on { color: var(--brand); background: var(--water-soft); }
+  .tab .nav-badge { position: absolute; top: 2px; inset-inline-end: calc(50% - 22px); margin: 0; }
+}

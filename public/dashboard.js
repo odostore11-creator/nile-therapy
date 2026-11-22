@@ -72,14 +72,15 @@ function topAreas(sessions, n = 5) {
 
 // ---------- Overview ----------
 async function overviewPage(main) {
-  main.innerHTML = `<div class="empty">${t('common.loading')}</div>`;
+  main.innerHTML = skeleton('page');
   const td = today(), wk = weekStart(td), ms = monthStartOf(td), lastMs = shiftMonth(td.slice(0, 7), -1) + '-01';
   const from12 = addDays(wk, -7 * 11);
-  let doctors, sessions, upcoming;
+  let doctors, sessions, upcoming, unclosed;
   try {
-    [doctors, sessions, upcoming] = await Promise.all([
+    [doctors, sessions, upcoming, unclosed] = await Promise.all([
       listDoctors(), listSessions({ from: from12 < lastMs ? from12 : lastMs }),
       listAppointments({ from: td, to: addDays(td, 6), statuses: ['planned'] }),
+      listAppointments({ from: addDays(td, -30), to: addDays(td, -1), statuses: ['planned'] }),
     ]);
   } catch (err) { main.innerHTML = `<div class="card empty">${esc(err.message)}</div>`; return; }
 
@@ -108,6 +109,13 @@ async function overviewPage(main) {
       <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn ghost" href="#/schedule">${t('ov.toSchedule')}</a><a class="btn" href="#/report">${t('ov.toReport')}</a></div>
     </div>
     ${nothingYet ? firstDayCard(doctors.length) : ''}
+    ${unclosed.length ? `<section class="card closing-card"><div class="card-head"><h2>⚠ ${t('ov.unclosed', { n: unclosed.length })}</h2></div>
+      <p class="muted small">${t('ov.unclosedHelp')}</p>
+      <div class="table-wrap cards"><table><tbody>${unclosed.slice(0, 8).map(a => `<tr>
+        <td class="c-date" style="white-space:nowrap">${fmtDay(a.appt_date, { weekday: 'short', day: 'numeric', month: 'short' })}<span class="muted small c-time">${esc(a.appt_time)}</span></td>
+        <td class="c-doctor" dir="auto">${esc(a.doctor_name)}</td><td class="c-patient" dir="auto"><strong>${esc(a.patient_name)}</strong></td>
+        <td class="c-edit"><button type="button" class="btn ghost sm" data-visit="${a.id}">${t('common.open')}</button></td></tr>`).join('')}</tbody></table></div>
+      ${unclosed.length > 8 ? `<p class="muted small">${t('ov.more', { n: unclosed.length - 8 })}</p>` : ''}</section>` : ''}
     <div class="stats">
       ${kpi(thisWeek.length, t('ov.kpi.week'), delta(thisWeek.length, lastWeekSoFar.length))}
       ${kpi(thisMonth.length, t('ov.kpi.month'), delta(thisMonth.length, lastMonthSoFar.length))}
@@ -134,6 +142,7 @@ async function overviewPage(main) {
       </section>
     </div>`;
   wireReminders(main, doctors);
+  main.querySelectorAll('[data-visit]').forEach(b => b.onclick = () => visitModal(unclosed.find(a => a.id == b.dataset.visit), () => overviewPage(main), doctors));
 }
 
 // Shown on the Overview until anything has been logged or booked.
@@ -175,9 +184,12 @@ async function reportPage(main, arg) {
   const td = today();
   const ym = /^\d{4}-\d{2}$/.test(arg || '') ? arg : td.slice(0, 7);
   const start = ym + '-01', end = monthEnd(ym), prev = shiftMonth(ym, -1);
-  main.innerHTML = `<div class="empty">${t('common.loading')}</div>`;
-  let doctors, all;
-  try { [doctors, all] = await Promise.all([listDoctors(), listSessions({ to: end })]); }
+  main.innerHTML = skeleton('page');
+  let doctors, all, firsts;
+  try {
+    [doctors, all, firsts] = await Promise.all([listDoctors(), listSessions({ from: prev + '-01', to: end }),
+      sb.rpc('patient_first_seen', { p_from: start, p_to: end }).then(check)]);
+  }
   catch (err) { main.innerHTML = `<div class="card empty">${esc(err.message)}</div>`; return; }
 
   const m = inRange(all, start, end);
@@ -185,14 +197,16 @@ async function reportPage(main, arg) {
   const partial = ym === td.slice(0, 7);
   const pEnd = partial ? [addDays(prev + '-01', daysBetween(start, td)), monthEnd(prev)].sort()[0] : monthEnd(prev);
   const p = inRange(all, prev + '-01', pEnd);
-  const firstSeen = new Map();
-  for (const s of all) if (!firstSeen.has(s.patient_name) || s.session_date < firstSeen.get(s.patient_name)) firstSeen.set(s.patient_name, s.session_date);
-  const patients = new Set(m.map(s => s.patient_name));
-  const newPatients = [...patients].filter(n => firstSeen.get(n) >= start);
+  // Same patient key as the database: the patient's id, or the cleaned-up name for old rows.
+  const pkey = s => (s.patient_id ? 'p' + s.patient_id : 'n' + nameKey(s.patient_name));
+  const firstSeen = new Map(firsts.map(x => [x.patient_key, x.first_date]));
+  const nameOf = new Map(m.map(s => [pkey(s), s.patient_name]));
+  const patients = new Set(m.map(pkey));
+  const newPatients = [...patients].filter(k => firstSeen.get(k) >= start).map(k => nameOf.get(k));
   const hours = m.reduce((a, s) => a + (s.duration_min || 0), 0) / 60;
   const rows = doctors.map(d => {
     const ds = m.filter(s => s.doctor_id === d.id);
-    return { d, n: ds.length, patients: new Set(ds.map(s => s.patient_name)).size, hours: ds.reduce((a, s) => a + (s.duration_min || 0), 0) / 60,
+    return { d, n: ds.length, patients: new Set(ds.map(pkey)).size, hours: ds.reduce((a, s) => a + (s.duration_min || 0), 0) / 60,
       types: TYPE_ORDER.map(k => ds.filter(s => s.session_type === k).length), last: ds.reduce((a, s) => (s.session_date > a ? s.session_date : a), '') };
   }).filter(r => r.n || r.d.active).sort((a, b) => b.n - a.n);
   const days = Array.from({ length: daysBetween(start, end) + 1 }, (_, i) => {

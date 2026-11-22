@@ -21,8 +21,8 @@ function drawAlerts() {
   const doctor = state.user?.role === 'doctor', items = alertState.items, n = items.length;
   // Count bubble on the menu item.
   const navKey = doctor ? 'requests' : 'coverage';
-  document.querySelectorAll(`.nav[href="#/${navKey}"] .nav-badge`).forEach(b => b.remove());
-  if (n) document.querySelectorAll(`.nav[href="#/${navKey}"]`).forEach(a => a.insertAdjacentHTML('beforeend', `<span class="nav-badge ${doctor ? '' : 'red'}">${n}</span>`));
+  document.querySelectorAll(`.nav[href="#/${navKey}"] .nav-badge, .tab[href="#/${navKey}"] .nav-badge`).forEach(b => b.remove());
+  if (n) document.querySelectorAll(`.nav[href="#/${navKey}"], .tab[href="#/${navKey}"]`).forEach(a => a.insertAdjacentHTML('beforeend', `<span class="nav-badge ${doctor ? '' : 'red'}">${n}</span>`));
   if (!slot) return;
   const onPage = location.hash.startsWith(`#/${navKey}`);
   if (!n || onPage) { slot.innerHTML = ''; return; }

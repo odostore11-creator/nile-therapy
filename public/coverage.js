@@ -48,7 +48,7 @@ const listRequests = async () => check(await sb.from('patient_requests').select(
 const callRpc = async (fn, args) => check(await sb.rpc(fn, args));
 
 const minutesLeft = r => Math.max(0, OPEN_MINUTES - Math.floor((Date.now() - Date.parse(r.opened_at)) / 60000));
-const needsFounders = r => r.status === 'open' && (r.reason === 'out_of_area' || minutesLeft(r) === 0);
+const needsFounders = r => r.status === 'open' && (r.reason === 'out_of_area' || r.reason === 'visit_cancelled' || minutesLeft(r) === 0);
 const requestState = r => (r.status === 'cancelled' ? 'cancelled' : r.status !== 'open' ? 'done' : needsFounders(r) ? 'founders' : 'waiting');
 
 async function geocode(q) {
@@ -117,7 +117,7 @@ function requestSummary(r, names) {
   const when = `${fmtDay(r.preferred_date, { weekday: 'short', day: 'numeric', month: 'short' })}${r.preferred_time ? ' · ' + esc(r.preferred_time.slice(0, 5)) : ''}`;
   const st = requestState(r);
   const status = st === 'done' ? `✓ ${t('req.st.' + r.status, { name: `<bdi>${esc(names.get(r.assigned_doctor_id) || '?')}</bdi>` })}`
-    : st === 'founders' ? `⚠ ${t(r.reason === 'out_of_area' ? 'req.st.outOfArea' : 'req.st.overdue')}`
+    : st === 'founders' ? `⚠ ${t(r.reason === 'out_of_area' ? 'req.st.outOfArea' : r.reason === 'visit_cancelled' ? 'req.st.visitCancelled' : 'req.st.overdue')}`
     : st === 'waiting' ? `⏳ ${t('req.st.waiting', { n: minutesLeft(r) })}` : `✕ ${t('req.st.cancelled')}`;
   return { when, status, st };
 }
@@ -141,7 +141,7 @@ async function coveragePage(main) {
         <button type="button" data-tab="waiting">${t('cov.tab.waiting')} <b id="cnt-waiting"></b></button>
         <button type="button" data-tab="done">${t('cov.tab.done')}</button>
       </div>
-      <div id="reqlist"><div class="empty">${t('common.loading')}</div></div>
+      <div id="reqlist">${skeleton('cards', 2)}</div>
     </section>`;
   const $ = id => main.querySelector('#' + id);
   try { await loadLeaflet(); } catch (err) { $('map').innerHTML = `<div class="empty">${esc(err.message)}</div>`; return; }
@@ -282,7 +282,6 @@ async function coveragePage(main) {
     bar.querySelector('[data-stop]').onclick = () => drawing.stop();
     bar.querySelector('[data-save]').onclick = async () => {
       if (pts.length < 3) return toast(t('cov.needPoints'));
-      if (!await confirmAction({ title: t('cov.saveAreaQ', { name: d.full_name }), confirm: t('cov.saveArea'), danger: false })) return;
       try { await saveArea(d.id, pts, color); drawing.stop(); toast(t('cov.areaSaved')); await load(); } catch (err) { toast(err.message); }
     };
     map.on('click', onClick);
@@ -309,10 +308,7 @@ async function coveragePage(main) {
 // ---------- founders: a new patient request ----------
 function newRequestModal(onDone) {
   modal(`<h2>${t('req.newTitle')}</h2><p class="muted small">${t('req.newHelp')}</p><form>
-      <div class="grid2">
-        <div class="field"><label>${t('form.patient')}</label><input name="patient_name" dir="auto" required placeholder="${esc(t('form.patient.ph'))}"></div>
-        <div class="field"><label>${t('doc.phone')}</label><input name="phone" dir="ltr" placeholder="01x xxxx xxxx"></div>
-      </div>
+      ${patientFieldHtml({}, { open: true })}
       <div class="field"><label>${t('req.address')}</label>
         <div class="search-box"><input name="location" dir="auto" type="search" enterkeyhint="search" placeholder="${esc(t('req.address.ph'))}"></div>
         <div class="search-results" data-results role="listbox"></div></div>
@@ -344,16 +340,16 @@ function newRequestModal(onDone) {
       setPin(x.lat, x.lng, 16);
       if (x.icon !== '🎯') form.location.value = x.name.split(',').slice(0, 3).join(',');
     });
-    form.onsubmit = async e => {
-      e.preventDefault();
-      const b = formData(form), err = form.querySelector('.error');
-      if (!pin) { err.textContent = t('req.needPin'); return; }
-      try {
-        const res = await callRpc('create_patient_request', { p: { patient_name: b.patient_name, phone: b.phone, address: b.location, lat: pin.lat, lng: pin.lng,
-          preferred_date: b.preferred_date, preferred_time: b.preferred_time, duration_min: b.duration_min, session_type: b.session_type, notes: b.notes } });
-        close(); await onDone(); requestResultModal(res);
-      } catch (x) { err.textContent = x.message; }
-    };
+    onSubmit(form, async () => {
+      const b = formData(form);
+      if (!pin) throw new Error(t('req.needPin'));
+      if (!cleanName(b.patient_name)) throw new Error(t('err.patient'));
+      const pid = await ensurePatient(b); // existing patient (phone/condition updated) or a new one
+      const res = await callRpc('create_patient_request', { p: { patient_id: pid, patient_name: cleanName(b.patient_name), phone: b.patient_phone || '', condition: b.patient_condition || '',
+        address: b.location, lat: pin.lat, lng: pin.lng, preferred_date: b.preferred_date, preferred_time: b.preferred_time, duration_min: b.duration_min,
+        session_type: b.session_type, notes: b.notes } });
+      close(); await onDone(); requestResultModal(res);
+    });
   });
 }
 
@@ -435,7 +431,7 @@ async function openPatientsPage(main) {
     <div class="card map-card"><div id="map" class="map small-map"></div>
       <div class="map-legend"><span><i class="check">✓</i>${t('open.legendMine')}</span><span><i class="dot"></i>${t('map.legendLogged', { n: LOGGED_DAYS })}</span><span><i style="background:${REQ_COLORS.waiting}"></i>${t('open.legendOpen')}</span></div></div>
     <h2 class="section-title">${t('open.listTitle')}</h2>
-    <div id="list" class="open-list"><div class="empty">${t('common.loading')}</div></div>`;
+    <div id="list" class="open-list">${skeleton('cards', 2)}</div>`;
   let list = [], myArea = null, mine = [], logged = [];
   try {
     [list, myArea, mine, logged] = await Promise.all([callRpc('open_requests_for_me', {}),

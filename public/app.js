@@ -27,6 +27,7 @@ function render() {
   if (page === 'doctors' && arg) return shell('doctors', el => doctorProfile(el, arg));
   if (page === 'doctors') return shell('doctors', doctorsPage);
   if (page === 'sessions') return shell('sessions', sessionsPage);
+  if (page === 'patients') return shell('patients', patientsPage);
   if (page === 'schedule') return shell('schedule', schedulePage);
   if (page === 'report') return shell('report', el => reportPage(el, arg));
   if (page === 'history') return shell('history', historyPage);
@@ -91,13 +92,13 @@ function renderLogin() {
 function shell(active, renderPage) {
   const u = state.user;
   const nav = u.role === 'admin'
-    ? [['overview', t('nav.overview'), icons.overview], ['sessions', t('nav.sessions'), icons.sessions], ['schedule', t('nav.schedule'), icons.schedule],
+    ? [['overview', t('nav.overview'), icons.overview], ['sessions', t('nav.sessions'), icons.sessions], ['patients', t('nav.patients'), icons.patients], ['schedule', t('nav.schedule'), icons.schedule],
        ['coverage', t('nav.coverage'), icons.map],
        ['doctors', t('nav.doctors'), icons.doctors], ['report', t('nav.report'), icons.report], ['history', t('nav.history'), icons.history],
        ['chat', t('nav.chat'), icons.chat]]
-    : [['log', t('nav.log'), icons.log], ['schedule', t('nav.mySchedule'), icons.schedule], ['requests', t('nav.openPatients'), icons.inbox]];
+    : [['log', t('nav.today'), icons.today], ['schedule', t('nav.mySchedule'), icons.schedule], ['requests', t('nav.openPatients'), icons.map]];
   $app.innerHTML = `
-  <div class="shell">
+  <div class="shell ${u.role === 'doctor' ? 'doc-shell' : ''}">
     <aside class="side">
       <div class="side-top">
         <div class="brand"><span class="brand-mark"><img src="logo-mark.png" alt="" width="40" height="40"></span> <span class="brand-name">Nile Therapy</span></div>
@@ -114,6 +115,7 @@ function shell(active, renderPage) {
       </div>
     </aside>
     <main class="main"><div id="alerts"></div><div id="tip"></div><div id="main"></div></main>
+    ${u.role === 'doctor' ? `<nav class="tabbar" aria-label="${esc(t('nav.menu'))}">${nav.map(([k, label, ic]) => `<a class="tab ${active === k ? 'on' : ''}" href="#/${k}" ${active === k ? 'aria-current="page"' : ''}>${ic}<span>${label}</span></a>`).join('')}</nav>` : ''}
   </div>`;
   const side = $app.querySelector('.side'), menuBtn = document.getElementById('menu');
   menuBtn.onclick = () => { const open = side.classList.toggle('open'); menuBtn.setAttribute('aria-expanded', open); menuBtn.textContent = open ? '✕' : '☰'; };
@@ -126,7 +128,10 @@ function shell(active, renderPage) {
     state.user = null; location.hash = ''; await sb.auth.signOut({ scope: 'local' }); render(); // only this device
   };
   document.getElementById('pw').onclick = passwordModal;
-  renderPage(document.getElementById('main'));
+  const pageEl = document.getElementById('main');
+  pageEl.classList.add('page-in');
+  renderPage(pageEl);
+  flushOutbox(); // anything saved while offline goes out now
 }
 
 
@@ -169,10 +174,10 @@ function passwordModal() {
       <div class="error" id="pwerr" role="alert"></div>
       <div class="actions"><button type="button" class="btn ghost" data-close>${t('common.cancel')}</button><button class="btn">${t('common.save')}</button></div>
     </form>`, (m, close) => {
-    m.querySelector('form').onsubmit = async e => {
-      e.preventDefault();
-      try {
-        const b = formData(e.target);
+    const pwForm = m.querySelector('form');
+    onSubmit(pwForm, async () => {
+      {
+        const b = formData(pwForm);
         if (String(b.next || '').length < 8) throw new Error(t('err.pwShort'));
         if (!await confirmAction({ title: t('confirm.password'), message: t('confirm.passwordMsg'), confirm: t('pw.title') })) return;
         // Supabase doesn't ask for the old password, so check it ourselves first.
@@ -183,8 +188,7 @@ function passwordModal() {
         await sb.auth.signOut({ scope: 'others' }); // log out other devices, like v0.1
         close(); toast(t('pw.done'));
       }
-      catch (err) { m.querySelector('#pwerr').textContent = err.message; }
-    };
+    });
   });
 }
 

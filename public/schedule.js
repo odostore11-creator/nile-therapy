@@ -42,6 +42,8 @@ function apptPayload(b) {
 }
 async function saveAppointment(id, b, doctorId) {
   const p = apptPayload(b);
+  p.patient_name = cleanName(p.patient_name);
+  p.patient_id = await ensurePatient(b);
   if (doctorId) p.doctor_id = doctorId;
   if (id) {
     const rows = check(await sb.from('appointments').update(p).eq('id', id).select('id'));
@@ -75,16 +77,38 @@ function bookVisitModal(onDone, { doctors, appt } = {}) {
       <div class="error" role="alert"></div>
       <div class="actions"><button type="button" class="btn ghost" data-close>${t('common.cancel')}</button><button class="btn">${t(appt ? 'common.save' : 'sched.bookBtn')}</button></div></form>`, (m, close) => {
     const form = m.querySelector('form'); wireTypePick(form);
-    form.onsubmit = async e => {
-      e.preventDefault();
-      try {
-        const b = formData(form);
-        apptPayload(b); // check the form before asking
-        if (appt && !await confirmAction({ title: t('confirm.saveVisit'), confirm: t('confirm.saveBtn') })) return;
-        await saveAppointment(appt?.id, b, founder ? b.doctor_id : (appt ? null : state.user.id));
-        close(); toast(t(appt ? 'sched.saved' : 'sched.booked')); onDone();
-      } catch (err) { form.querySelector('.error').textContent = err.message; }
+    if (!appt) wireDraft(form, 'book');
+    // How busy is this doctor that day? (5-a-day rule, and a clash with another visit's time.)
+    const note = document.createElement('div'); note.className = 'load-note'; note.setAttribute('aria-live', 'polite');
+    form.querySelector('.grid3').after(note);
+    let seq = 0;
+    const mins = v => { const [h, mm] = String(v).split(':').map(Number); return h * 60 + (mm || 0); };
+    const checkLoad = async () => {
+      const doc = founder ? form.elements.doctor_id?.value : (appt?.doctor_id || state.user.id), day = form.elements.session_date.value, time = form.elements.session_time.value;
+      if (!doc || !day) { note.innerHTML = ''; note.className = 'load-note'; return; }
+      const my = ++seq;
+      let ap, ss;
+      try { [ap, ss] = await Promise.all([listAppointments({ from: day, to: day, doctorId: doc, statuses: ['planned', 'done'] }), listSessions({ from: day, to: day, doctorId: doc })]); }
+      catch { return; }
+      if (my !== seq) return;
+      const others = ap.filter(a => a.id !== appt?.id);
+      const linked = new Set(ap.map(a => a.session_id).filter(Boolean));
+      const n = others.length + ss.filter(x => !linked.has(x.id)).length;
+      const clash = time && others.find(a => a.status === 'planned' && a.appt_time && Math.abs(mins(a.appt_time) - mins(time)) < (a.duration_min || 45));
+      const full = n >= DAILY_LIMIT;
+      note.className = 'load-note' + (full || clash ? ' warn' : n ? '' : ' free');
+      note.innerHTML = `<b>${t('book.load', { n, limit: DAILY_LIMIT })}</b>${full ? ` · ${t('book.full')}` : ''}
+        ${clash ? `<br>⚠ ${t('book.clash', { time: esc(clash.appt_time), name: esc(clash.patient_name) })}` : ''}
+        ${others.length ? `<div class="small">${others.map(a => `${esc(a.appt_time || '—')} <bdi>${esc(a.patient_name)}</bdi>`).join(' · ')}</div>` : ''}`;
     };
+    ['doctor_id', 'session_date', 'session_time'].forEach(k => form.elements[k]?.addEventListener('change', checkLoad));
+    checkLoad();
+    onSubmit(form, async () => {
+      const b = formData(form);
+      await saveAppointment(appt?.id, b, founder ? b.doctor_id : (appt ? null : state.user.id));
+      if (!appt) clearDraft('book');
+      close(); toast(t(appt ? 'sched.saved' : 'sched.booked')); onDone();
+    });
   });
 }
 
@@ -93,12 +117,18 @@ function markDoneModal(a, onDone) {
   modal(`<h2>${t('sched.doneTitle')}</h2><p class="muted">${t('sched.doneHelp')}</p><form>${sessionFormHtml(values)}
       <div class="error" role="alert"></div>
       <div class="actions"><button type="button" class="btn ghost" data-close>${t('common.cancel')}</button><button class="btn">${t('sched.doneBtn')}</button></div></form>`, (m, close) => {
-    const form = m.querySelector('form'); wireTypePick(form);
-    form.onsubmit = async e => {
-      e.preventDefault();
-      try { await completeAppointment(a, formData(form)); close(); toast(t('sched.logged')); onDone(); }
-      catch (err) { form.querySelector('.error').textContent = err.message; }
-    };
+    const form = m.querySelector('form'); wireTypePick(form); wireDraft(form, 'done-' + a.id);
+    onSubmit(form, async () => {
+      const b = formData(form);
+      sessionPayload(b);
+      try { await completeAppointment(a, b); toast(t('sched.logged')); }
+      catch (e) {
+        if (!isNetworkError(e)) throw e;
+        queueOutbox({ kind: 'complete', apptId: a.id, data: b, label: a.patient_name });
+        toast(t('outbox.queued'));
+      }
+      clearDraft('done-' + a.id); close(); onDone();
+    });
   });
 }
 
@@ -114,6 +144,8 @@ function visitModal(a, onDone, doctors) {
       <dt>${t('form.type')}</dt><dd>${esc(typeLabel(a.session_type) || '—')}</dd>
       <dt>${t('th.location')}</dt><dd dir="auto">${esc(a.location || '—')}${mapLinkHtml(a.location_url)}</dd>
       <dt>${t('form.minutes')}</dt><dd>${esc(a.duration_min ?? '—')}</dd>
+      <dt data-pc hidden>${t('patient.condition')}</dt><dd data-pc hidden dir="auto"></dd>
+      <dt data-pp hidden>${t('patient.phone')}</dt><dd data-pp hidden></dd>
       ${a.notes ? `<dt>${t('form.notes')}</dt><dd dir="auto">${esc(a.notes)}</dd>` : ''}
     </dl>
     <div class="error" role="alert"></div>
@@ -126,6 +158,11 @@ function visitModal(a, onDone, doctors) {
              : `<button type="button" class="btn" data-close>${t('common.done')}</button>`}
     </div>`, (m, close) => {
     const err = m.querySelector('.error');
+    if (a.patient_id) listPatients().then(list => {
+      const p = list.find(x => x.id === a.patient_id); if (!p) return;
+      if (p.condition) { m.querySelectorAll('[data-pc]').forEach(x => x.hidden = false); m.querySelector('dd[data-pc]').textContent = p.condition; }
+      if (p.phone) { m.querySelectorAll('[data-pp]').forEach(x => x.hidden = false); m.querySelector('dd[data-pp]').innerHTML = `<a href="tel:${esc(p.phone)}" dir="ltr">${esc(p.phone)}</a>`; }
+    }).catch(() => {});
     const act = (sel, fn) => { const b = m.querySelector(sel); if (b) b.onclick = async () => { try { await fn(); } catch (e) { err.textContent = e.message; } }; };
     act('[data-edit]', () => { close(); bookVisitModal(onDone, { doctors, appt: a }); });
     act('[data-done]', () => { close(); markDoneModal(a, onDone); });
@@ -186,7 +223,7 @@ async function schedulePage(main) {
       <label class="check"><input type="checkbox" id="showcx" ${state.schedShowCancelled ? 'checked' : ''}> ${t('sched.showCancelled')}</label>
     </div>
     <div id="weeknote"></div>
-    <div id="week" class="week"><div class="empty">${t('common.loading')}</div></div>`;
+    <div id="week" class="week ${state.schedShowPast ? '' : 'hide-past'}">${skeleton('cards', 3)}</div>`;
   const $ = id => main.querySelector('#' + id);
   let list = [], logged = [];
   const load = async () => {
@@ -204,6 +241,12 @@ async function schedulePage(main) {
     const td = today();
     $('weeknote').innerHTML = list.some(a => a.status !== 'cancelled') || logged.length ? '' : `<p class="empty-note">${t('sched.emptyWeek')} <button type="button" class="link" id="book2">${t('sched.book')}</button></p>`;
     $('book2')?.addEventListener('click', () => bookVisitModal(load, { doctors }));
+    const pastDays = Array.from({ length: 7 }, (_, i) => addDays(from, i)).filter(d => d < td).length;
+    if (pastDays && pastDays < 7 && !state.schedShowPast) {
+      $('weeknote').insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost sm phone-only past-toggle" id="showpast">${t('sched.showEarlier', { n: pastDays })}</button>`);
+      $('showpast').onclick = () => { state.schedShowPast = true; $('week').classList.remove('hide-past'); $('showpast').remove(); };
+    }
+    $('week').classList.toggle('hide-past', !state.schedShowPast && pastDays < 7);
     $('week').innerHTML = Array.from({ length: 7 }, (_, i) => {
       const day = addDays(from, i);
       const items = [...list.filter(a => a.appt_date === day).map(a => ({ time: a.appt_time, html: apptCard(a, founder) })),

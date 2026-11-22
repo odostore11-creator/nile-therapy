@@ -12,8 +12,8 @@ begin
   -- ===== as doctor Mona =====
   perform set_config('request.jwt.claims', json_build_object('sub', mona, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  insert into public.appointments (doctor_id, patient_name, location, appt_date, appt_time) values (mona, 'M patient', 'Nasr City', current_date, '10:00') returning id into appt;
-  select count(*) into n from public.appointments;
+  insert into public.appointments (doctor_id, patient_name, location, location_url, appt_date, appt_time) values (mona, 'M patient', 'Nasr City', 'https://maps.app.goo.gl/x', current_date, '10:00') returning id into appt;
+  select count(*) into n from public.appointments where id in (appt, karim_appt);
   if n <> 1 then raise exception 'FAIL: doctor sees % visits, expected only her own 1', n; end if;
   failed := false;
   begin insert into public.appointments (doctor_id, patient_name, appt_date) values (karim, 'x', current_date); exception when others then failed := true; end;
@@ -45,7 +45,7 @@ begin
   -- ===== as founder =====
   perform set_config('request.jwt.claims', json_build_object('sub', abd, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  select count(*) into n from public.appointments;
+  select count(*) into n from public.appointments where id in (appt, karim_appt);
   if n <> 2 then raise exception 'FAIL: founder sees % visits, expected 2', n; end if;
   update public.appointments set doctor_id = mona, appt_date = current_date + 2 where id = karim_appt;
   get diagnostics n = row_count;

@@ -107,7 +107,7 @@ const mapLinkHtml = url => (/^https:\/\//i.test(url || '') ? ` <a class="map-lin
 
 function sessionPayload(b) {
   const s = {
-    patient_name: String(b.patient_name || '').trim(), location: String(b.location || '').trim(),
+    patient_name: cleanName(b.patient_name), location: String(b.location || '').trim(),
     session_date: b.session_date || '', session_time: b.session_time || null,
     session_type: b.session_type || '', notes: String(b.notes || '').trim(),
     duration_min: b.duration_min === '' || b.duration_min == null ? null : Math.max(0, Math.min(600, parseInt(b.duration_min, 10) || 0)),
@@ -118,13 +118,183 @@ function sessionPayload(b) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s.session_date)) throw new Error(t('err.date'));
   return s;
 }
+/**
+ * Logs a session. `b.client_ref` (made once per form submit) means a retry after a lost
+ * connection can't store it twice. Returns { linkedVisit } when the database closed a matching
+ * booked visit (same doctor, day and patient).
+ */
 async function addSession(b, doctorId) {
   if (!doctorId) throw new Error(t('err.pickDoctor'));
-  check(await sb.from('sessions').insert({ ...sessionPayload(b), doctor_id: doctorId }));
+  const s = sessionPayload(b);
+  s.patient_id = await ensurePatient(b);
+  const row = { ...s, doctor_id: doctorId, client_ref: b.client_ref || newRef() };
+  const { data, error } = await sb.from('sessions').insert(row).select('id').maybeSingle();
+  if (error?.code === '23505') return { linkedVisit: false, duplicate: true }; // already stored (retry)
+  if (error) throw Object.assign(new Error(friendly(error)), { network: isNetworkError(error) });
+  const linked = data ? check(await sb.from('appointments').select('id').eq('session_id', data.id)) : [];
+  patientCache.stale = true;
+  return { linkedVisit: linked.length > 0 };
 }
 async function updateSession(id, b) {
-  const rows = check(await sb.from('sessions').update(sessionPayload(b)).eq('id', id).select('id'));
+  const s = sessionPayload(b);
+  s.patient_id = await ensurePatient(b);
+  const rows = check(await sb.from('sessions').update(s).eq('id', id).select('id'));
   if (!rows.length) throw new Error(t('err.notAllowed'));
+}
+
+// ---------- patients ----------
+// One row per patient (name, optional phone, why they come). Founders see all; doctors see the
+// patients they added or treat (database rule). The list is cached and refreshed when needed.
+const cleanName = v => String(v || '').trim().replace(/\s+/g, ' ');
+const nameKey = v => cleanName(v).toLowerCase();
+const patientCache = { list: null, stale: true, at: 0 };
+async function listPatients(force = false) {
+  if (!force && patientCache.list && !patientCache.stale && Date.now() - patientCache.at < 120000) return patientCache.list;
+  const out = [];
+  for (let start = 0; ; start += 1000) {
+    const rows = check(await sb.from('patients').select('id, full_name, phone, condition, notes, created_at').order('full_name').range(start, start + 999));
+    out.push(...rows);
+    if (rows.length < 1000) break;
+  }
+  Object.assign(patientCache, { list: out, stale: false, at: Date.now() });
+  return out;
+}
+/**
+ * Works out which patient a form is about. Picked from the list -> that id (and saves a changed
+ * phone/condition). Typed a name that matches exactly one patient -> that one. Otherwise a new
+ * patient is created. No name -> null.
+ */
+async function ensurePatient(b) {
+  const name = cleanName(b.patient_name);
+  if (!name) return null;
+  const phone = String(b.patient_phone ?? '').trim().slice(0, 40), condition = String(b.patient_condition ?? '').trim().slice(0, 500);
+  let id = Number(b.patient_id) || null;
+  const list = patientCache.list || [];
+  if (id) {
+    const p = list.find(x => x.id === id);
+    if (p && nameKey(p.full_name) !== nameKey(name)) id = null; // the name was changed after picking: treat as typed
+  }
+  if (!id) {
+    const same = list.filter(x => nameKey(x.full_name) === nameKey(name));
+    if (same.length === 1) id = same[0].id;
+  }
+  if (id) {
+    const p = list.find(x => x.id === id);
+    const changes = {};
+    if ('patient_phone' in b && p && phone !== (p.phone || '')) changes.phone = phone;
+    if ('patient_condition' in b && p && condition !== (p.condition || '')) changes.condition = condition;
+    if (Object.keys(changes).length) { check(await sb.from('patients').update(changes).eq('id', id).select('id')); Object.assign(p, changes); }
+    return id;
+  }
+  const { data, error } = await sb.from('patients').insert({ full_name: name, phone, condition }).select('id, full_name, phone, condition, notes, created_at').single();
+  if (error) throw Object.assign(new Error(friendly(error)), { network: isNetworkError(error) });
+  (patientCache.list ||= []).push(data);
+  return data.id;
+}
+
+// ---------- safety nets: double taps, drafts, offline outbox ----------
+const newRef = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => (Math.random() * 16 | 0).toString(16)));
+const isNetworkError = e => !navigator.onLine || e?.message === t('err.network') || /Failed to fetch|NetworkError|Load failed|fetch failed|network/i.test(e?.message || String(e));
+
+/** form.onsubmit that can't run twice at once: the submit button is locked until it finishes. */
+function onSubmit(form, handler) {
+  let running = false;
+  form.onsubmit = async e => {
+    e.preventDefault();
+    if (running) return;
+    running = true;
+    const btns = [...form.querySelectorAll('button:not([type=button])')];
+    btns.forEach(b => { b.disabled = true; b.classList.add('loading'); });
+    const err = form.querySelector('.error'); if (err) err.textContent = '';
+    try { await handler(e); }
+    catch (x) { if (err) err.textContent = x.message; else toast(x.message); }
+    finally { running = false; btns.forEach(b => { if (b.isConnected) { b.disabled = false; b.classList.remove('loading'); } }); }
+  };
+}
+
+// Drafts: what's typed in a form is kept on this device until it's sent, so a closed tab,
+// a dead battery or a lost connection never loses a session.
+const draftKey = key => `nt_draft_${state.user?.id || 'x'}_${key}`;
+function wireDraft(form, key, { skip = [] } = {}) {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(draftKey(key)) || 'null'); } catch { /* storage blocked */ }
+  if (saved && Date.now() - saved.at < 7 * 864e5) {
+    for (const [k, v] of Object.entries(saved.data)) {
+      const el = form.elements[k];
+      if (el && !skip.includes(k) && v !== '' && el.type !== 'file') el.value = v;
+    }
+    form.querySelectorAll('[data-type]').forEach(b => { const on = b.dataset.type === form.elements.session_type?.value; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+    form.dispatchEvent(new Event('draft-restored'));
+    const note = document.createElement('p');
+    note.className = 'draft-note';
+    note.innerHTML = `💾 ${t('draft.restored')} <button type="button" class="link">${t('draft.discard')}</button>`;
+    note.querySelector('button').onclick = () => { clearDraft(key); form.reset(); note.remove(); form.dispatchEvent(new Event('draft-restored')); };
+    form.prepend(note);
+  }
+  let timer;
+  const save = () => { clearTimeout(timer); timer = setTimeout(() => {
+    try { localStorage.setItem(draftKey(key), JSON.stringify({ at: Date.now(), data: Object.fromEntries(new FormData(form).entries()) })); } catch { /* full/blocked */ }
+  }, 300); };
+  form.addEventListener('input', save);
+  form.addEventListener('change', save);
+}
+function clearDraft(key) { try { localStorage.removeItem(draftKey(key)); } catch { /* fine */ } }
+
+// Outbox: a session (or "mark done") that couldn't be sent because there was no connection is
+// kept here and sent automatically when the connection comes back. Each one carries a client_ref,
+// so it is stored once even if it is sent twice.
+const outboxKey = () => `nt_outbox_${state.user?.id || 'x'}`;
+function readOutbox() { try { return JSON.parse(localStorage.getItem(outboxKey()) || '[]'); } catch { return []; } }
+function writeOutbox(list) { try { localStorage.setItem(outboxKey(), JSON.stringify(list)); } catch { /* full/blocked */ } drawOutbox(); }
+function queueOutbox(item) { writeOutbox([...readOutbox(), { ...item, at: Date.now() }]); }
+let flushing = false;
+async function flushOutbox() {
+  if (flushing || !state.user || !navigator.onLine) return;
+  const list = readOutbox(); if (!list.length) return;
+  flushing = true;
+  const left = [];
+  let sent = 0;
+  for (const item of list) {
+    try {
+      if (item.kind === 'session') await addSession(item.data, item.doctorId);
+      else if (item.kind === 'complete') {
+        try { await completeAppointment({ id: item.apptId }, item.data); }
+        catch (e) { if (!/already closed/i.test(e.message)) throw e; } // it went through earlier
+      }
+      sent++;
+    } catch (e) {
+      if (isNetworkError(e) || e.network) { left.push(item); continue; }
+      left.push({ ...item, error: e.message }); // a real problem (e.g. missing field): keep it and show it
+    }
+  }
+  flushing = false;
+  writeOutbox(left);
+  if (sent) { toast(t('outbox.sent', { n: sent })); window.dispatchEvent(new Event('outbox-sent')); }
+}
+function drawOutbox() {
+  const slot = document.getElementById('outbox'); if (!slot) return;
+  const list = readOutbox();
+  if (!list.length) { slot.innerHTML = ''; return; }
+  const bad = list.filter(x => x.error);
+  slot.innerHTML = `<div class="outbox-bar ${bad.length ? 'bad' : ''}" role="status"><span aria-hidden="true">${bad.length ? '⚠' : '📤'}</span>
+    <span><b>${t('outbox.waiting', { n: list.length })}</b><br><span class="small">${bad.length ? esc(bad[0].error) : t(navigator.onLine ? 'outbox.retrying' : 'outbox.offline')}</span></span>
+    <button type="button" class="btn sm ghost" data-retry>${t('outbox.retry')}</button>${bad.length ? `<button type="button" class="btn sm ghost" data-drop>${t('outbox.drop')}</button>` : ''}</div>`;
+  slot.querySelector('[data-retry]').onclick = () => { writeOutbox(readOutbox().map(({ error, ...x }) => x)); flushOutbox(); };
+  const drop = slot.querySelector('[data-drop]');
+  if (drop) drop.onclick = async () => {
+    if (!await confirmAction({ title: t('outbox.dropQ'), message: bad.map(x => x.data?.patient_name).join(', '), confirm: t('outbox.drop') })) return;
+    writeOutbox(readOutbox().filter(x => !x.error));
+  };
+}
+window.addEventListener('online', () => { drawOutbox(); flushOutbox(); });
+window.addEventListener('offline', drawOutbox);
+
+/** Grey placeholder shapes while a page loads (instead of "Loading…"). */
+function skeleton(kind = 'cards', n = 3) {
+  const line = w => `<span class="sk-line" style="width:${w}%"></span>`;
+  if (kind === 'table') return `<div class="skeleton card" aria-busy="true" aria-label="${esc(t('common.loading'))}">${Array.from({ length: n + 2 }, (_, i) => `<div class="sk-row">${line(18)}${line(26)}${line(16)}${line(30 - i % 3 * 6)}</div>`).join('')}</div>`;
+  if (kind === 'page') return `<div class="skeleton" aria-busy="true" aria-label="${esc(t('common.loading'))}"><div class="sk-head">${line(30)}${line(45)}</div><div class="sk-grid">${Array.from({ length: 4 }, () => `<div class="sk-card">${line(40)}${line(70)}</div>`).join('')}</div><div class="sk-card tall">${line(35)}${line(90)}${line(80)}${line(60)}</div></div>`;
+  return `<div class="skeleton" aria-busy="true" aria-label="${esc(t('common.loading'))}">${Array.from({ length: n }, () => `<div class="sk-card">${line(35)}${line(75)}${line(55)}</div>`).join('')}</div>`;
 }
 async function deleteSession(id) {
   const rows = check(await sb.from('sessions').delete().eq('id', id).select('id'));
@@ -140,11 +310,11 @@ async function listDoctors() {
   const byId = new Map(check(stats).map(s => [s.doctor_id, s]));
   return check(docs).map(d => ({ ...d, stats: statsFor(byId.get(d.id)) }));
 }
-async function getDoctor(id) {
+async function getDoctor(id, from = null) {
   const [doc, stats, sessions] = await Promise.all([
     sb.from('profiles').select('*').eq('id', id).eq('role', 'doctor').maybeSingle(),
     sb.from('doctor_stats').select('*').eq('doctor_id', id).maybeSingle(),
-    listSessions({ doctorId: id }),
+    listSessions({ doctorId: id, from }),
   ]);
   const d = check(doc);
   if (!d) throw new Error(t('err.noDoctor'));
@@ -192,6 +362,8 @@ const icons = {
   sessions: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>',
   doctors: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M17 11a3 3 0 1 0 0-6M22 21c0-3-2-5-5-5.5"/></svg>',
   chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12Z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01" stroke-width="2.6" stroke-linecap="round"/></svg>',
+  today: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m8.5 14.5 2.5 2.5 4.5-5"/></svg>',
+  patients: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 21c0-4 3-6.5 7-6.5 1.4 0 2.7.3 3.8.8"/><path d="M18 14v7M14.5 17.5h7"/></svg>',
   log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
   overview: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>',
   schedule: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',

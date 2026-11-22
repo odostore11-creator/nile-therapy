@@ -17,7 +17,7 @@ begin
   set local role authenticated;
   res := public.create_patient_request(nasr);
   if res ->> 'status' <> 'assigned' or (res ->> 'doctor_id')::uuid <> mona then raise exception 'FAIL: expected assigned to Mona, got %', res; end if;
-  select count(*) into n from public.appointments where id = (res ->> 'appointment_id')::bigint and doctor_id = mona and appt_date = d and notes like '%Tel: 0100%';
+  select count(*) into n from public.appointments where id = (res ->> 'appointment_id')::bigint and doctor_id = mona and appt_date = d and notes like '%Tel: 0100%' and patient_id = (res ->> 'patient_id')::bigint;
   if n <> 1 then raise exception 'FAIL: the visit was not booked on Mona''s schedule'; end if;
   reset role;
 
@@ -63,6 +63,8 @@ begin
   failed := false;
   begin perform public.claim_patient_request(req1); exception when others then failed := true; end;
   if not failed then raise exception 'FAIL: the same patient was taken twice'; end if;
+  select count(*) into n from public.patients p join public.patient_requests r on r.patient_id = p.id where r.id = req1;
+  if n <> 1 then raise exception 'FAIL: Karim cannot see the patient he took'; end if;
   reset role;
 
   -- 6. an open request older than 2 hours: doctors can no longer see/take it; a founder assigns it (even over the limit)
