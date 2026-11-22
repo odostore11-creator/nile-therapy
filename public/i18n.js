@@ -29,7 +29,7 @@ const STRINGS = {
     'pw.done': 'Password changed',
 
     'form.doctor': 'Doctor', 'form.choose': 'Choose…',
-    'form.patient': 'Patient name', 'form.patient.ph': 'Short name, e.g. Ahmed S.',
+    'form.patient': 'Patient name', 'form.patient.ph': 'Full name, e.g. Ahmed Saeed',
     'form.type': 'Session type',
     'form.where': 'Where was the session?', 'form.where.ph': "Area / address, or 'Video call'",
     'form.videoCall': 'Video call',
@@ -363,7 +363,7 @@ const STRINGS = {
     'pw.done': 'تم تغيير كلمة المرور',
 
     'form.doctor': 'الطبيب', 'form.choose': 'اختر…',
-    'form.patient': 'اسم المريض', 'form.patient.ph': 'اسم مختصر، مثال: أحمد س.',
+    'form.patient': 'اسم المريض', 'form.patient.ph': 'الاسم الكامل، مثال: أحمد سعيد',
     'form.type': 'نوع الجلسة',
     'form.where': 'أين كانت الجلسة؟', 'form.where.ph': 'المنطقة / العنوان، أو «مكالمة فيديو»',
     'form.videoCall': 'مكالمة فيديو',
