@@ -904,3 +904,11 @@ html[dir="rtl"] td[dir="auto"], html[dir="rtl"] td [dir="auto"] { text-align: ri
 .tech-who b { grid-area: name; }
 .tech-who span { grid-area: role; }
 .tech-btns { grid-area: btns; }
+/* Desktop side menu: only the page list scrolls; the technical team card and the account stay pinned at the bottom. */
+@media (min-width: 981px) {
+  .side-menu { overflow: hidden; }
+  .side .nav-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .25) transparent; padding-bottom: 8px; }
+  .side .spacer { display: none; }
+  .tech-team, .me { flex: none; }
+  .tech-team[open] { max-height: 46vh; overflow-y: auto; scrollbar-width: thin; }
+}
