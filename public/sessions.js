@@ -3,7 +3,8 @@
 // Shared helpers come from core.js; all interface text from i18n.js (use t('key')).
 
 // ---------- session form (shared by doctors and founders) ----------
-function sessionFormHtml(s = {}, { doctors, future = false } = {}) {
+// `fees`: founders' price/commission fields (saved to session_fees; doctors never see them).
+function sessionFormHtml(s = {}, { doctors, future = false, fees = false } = {}) {
   const type = s.session_type || 'Home visit';
   return `
     ${doctors ? `<div class="field"><label>${t('form.doctor')}</label><select name="doctor_id" required><option value="">${t('form.choose')}</option>${doctors.filter(d => d.active).map(d => `<option value="${d.id}" ${s.doctor_id === d.id ? 'selected' : ''}>${esc(d.full_name)}</option>`).join('')}</select></div>` : ''}
@@ -22,8 +23,14 @@ function sessionFormHtml(s = {}, { doctors, future = false } = {}) {
       <div class="field"><label>${t('form.time')}</label><input name="session_time" type="time" value="${esc(s.session_time)}"></div>
       <div class="field"><label>${t('form.minutes')}</label><input name="duration_min" type="number" min="0" max="600" step="5" value="${esc(s.duration_min ?? 45)}"></div>
     </div>
-    <div class="field"><label>${t('form.notes')} <span class="muted">${t('form.optional')}</span></label><textarea name="notes" dir="auto" placeholder="${esc(t('form.notes.ph'))}">${esc(s.notes)}</textarea></div>`;
+    <div class="field"><label>${t('form.notes')} <span class="muted">${t('form.optional')}</span></label><textarea name="notes" dir="auto" placeholder="${esc(t('form.notes.ph'))}">${esc(s.notes)}</textarea></div>
+    ${fees && isFounder() ? `<fieldset class="fee-box"><legend>🔒 ${t('fee.founderOnly')}</legend><div class="grid2">
+      <div class="field"><label>${t('fee.price')}</label><input name="fee_price" type="number" min="0" max="1000000" step="1" inputmode="numeric" dir="ltr" value="${esc(s.price ?? '')}"></div>
+      <div class="field"><label>${t('fee.commission')}</label><input name="fee_commission" type="number" min="0" max="1000000" step="1" inputmode="numeric" dir="ltr" value="${esc(s.commission ?? '')}"></div>
+    </div></fieldset>` : ''}`;
 }
+const feeHtml = s => (isFounder() && (s.price != null || s.commission != null)
+  ? `<span class="fee-tag" title="${esc(t('fee.founderOnly'))}">${s.price != null ? `${esc(t('fee.priceShort'))} <bdi>${s.price}</bdi>` : ''}${s.price != null && s.commission != null ? ' · ' : ''}${s.commission != null ? `${esc(t('fee.commissionShort'))} <bdi>${s.commission}</bdi>` : ''}</span>` : '');
 // Patient name with suggestions from the patients list, plus optional phone and condition.
 function patientFieldHtml(s = {}, { open = false } = {}) {
   return `<div class="field patient-field"><label for="pn-${s.id || 'new'}">${t('form.patient')}</label>
@@ -111,7 +118,7 @@ function wireMapLink(root) {
   };
 }
 function editSessionModal(s, onDone) {
-  modal(`<h2>${t('edit.title')}</h2><form>${sessionFormHtml(s)}<div class="error" role="alert"></div>
+  modal(`<h2>${t('edit.title')}</h2><form>${sessionFormHtml(s, { fees: true })}<div class="error" role="alert"></div>
     <div class="actions"><button type="button" class="btn danger" data-del>${t('common.delete')}</button><span style="flex:1"></span><button type="button" class="btn ghost" data-close>${t('common.cancel')}</button><button class="btn">${t('common.save')}</button></div></form>`,
   (m, close) => {
     const f = m.querySelector('form'); wireTypePick(f);
@@ -135,7 +142,7 @@ function sessionRows(list, { showDoctor = true, editable = false } = {}) {
       <td class="c-type">${s.session_type ? `<span class="pill ${typeClass(s.session_type)}">${esc(typeLabel(s.session_type))}</span>` : ''}</td>
       <td class="c-loc" dir="auto">${esc(s.location)}${mapLinkHtml(s.location_url)}</td>
       <td class="c-min" data-unit="${esc(t('th.min'))}">${esc(s.duration_min ?? '')}</td>
-      <td class="c-notes small" dir="auto">${esc(s.notes)}</td>
+      <td class="c-notes small" dir="auto">${esc(s.notes)}${feeHtml(s)}</td>
       ${editable ? `<td class="c-edit"><button class="btn ghost sm" data-edit="${s.id}">${t('common.edit')}</button></td>` : ''}
     </tr>`).join('')}</tbody></table></div>`;
 }
@@ -301,7 +308,7 @@ async function sessionsPage(main) {
   ['doc', 'from', 'to'].forEach(id => f(id).onchange = () => { f('rangehint').hidden = true; load(); });
   f('alltime').onclick = () => { f('from').value = ''; f('rangehint').hidden = true; load(); };
   main.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { state.sessionsView = b.dataset.view; setView(); load(); });
-  f('add').onclick = () => modal(`<h2>${t('sessions.addTitle')}</h2><form>${sessionFormHtml({}, { doctors })}<div class="error" role="alert"></div>
+  f('add').onclick = () => modal(`<h2>${t('sessions.addTitle')}</h2><form>${sessionFormHtml({}, { doctors, fees: true })}<div class="error" role="alert"></div>
       <div class="actions"><button type="button" class="btn ghost" data-close>${t('common.cancel')}</button><button class="btn">${t('sessions.addBtn')}</button></div></form>`, (m, close) => {
     const form = m.querySelector('form'); wireTypePick(form); wireDraft(form, 'add-session');
     onSubmit(form, async () => {

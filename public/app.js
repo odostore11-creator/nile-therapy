@@ -31,6 +31,7 @@ function render() {
   if (page === 'schedule') return shell('schedule', schedulePage);
   if (page === 'report') return shell('report', el => reportPage(el, arg));
   if (page === 'history') return shell('history', historyPage);
+  if (page === 'calendar') return shell('calendar', calendarPage);
   if (page === 'chat') return shell('chat', chatPage);
   return shell('overview', overviewPage);
 }
@@ -93,6 +94,7 @@ function shell(active, renderPage) {
   const u = state.user;
   const nav = u.role === 'admin'
     ? [['overview', t('nav.overview'), icons.overview], ['sessions', t('nav.sessions'), icons.sessions], ['patients', t('nav.patients'), icons.patients], ['schedule', t('nav.schedule'), icons.schedule],
+       ['calendar', t('nav.calendar'), icons.calendar],
        ['coverage', t('nav.coverage'), icons.map],
        ['doctors', t('nav.doctors'), icons.doctors], ['report', t('nav.report'), icons.report], ['history', t('nav.history'), icons.history],
        ['chat', t('nav.chat'), icons.chat]]

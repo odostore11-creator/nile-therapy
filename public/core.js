@@ -71,8 +71,10 @@ async function loadMe() {
   return me;
 }
 
+const isFounder = () => state.user?.role === 'admin';
 const normalizeSession = s => ({
   ...s,
+  price: s.fee?.price ?? null, commission: s.fee?.commission ?? null, // founders only (session_fees)
   session_time: s.session_time ? s.session_time.slice(0, 5) : '',
   doctor_name: s.doctor?.full_name || '',
   doctor_username: s.doctor?.username || '',
@@ -81,7 +83,8 @@ async function listSessions({ doctorId, from, to, q } = {}) {
   const term = String(q || '').replace(/["\\,()]/g, ' ').trim().slice(0, 100);
   const out = [];
   for (let start = 0; ; start += 1000) { // Supabase returns at most 1000 rows per request
-    let query = sb.from('sessions').select('*, doctor:profiles!sessions_doctor_id_fkey(full_name, username)')
+    // Price and commission live in session_fees, which only founders can read (RLS).
+    let query = sb.from('sessions').select('*, doctor:profiles!sessions_doctor_id_fkey(full_name, username)' + (isFounder() ? ', fee:session_fees(price, commission)' : ''))
       .order('session_date', { ascending: false })
       .order('session_time', { ascending: false, nullsFirst: false })
       .order('id', { ascending: false })
@@ -123,23 +126,42 @@ function sessionPayload(b) {
  * connection can't store it twice. Returns { linkedVisit } when the database closed a matching
  * booked visit (same doctor, day and patient).
  */
+// ---------- price & commission (founders only) ----------
+const feeNum = v => {
+  const s = String(v ?? '').trim(); if (!s) return null;
+  const n = Number(s);
+  if (!Number.isInteger(n) || n < 0 || n > 1000000) throw new Error(t('err.fee'));
+  return n;
+};
+function checkFees(b) { if ('fee_price' in b) { feeNum(b.fee_price); feeNum(b.fee_commission); } }
+async function saveFee(sessionId, b) {
+  if (!isFounder() || !('fee_price' in b)) return;
+  const price = feeNum(b.fee_price), commission = feeNum(b.fee_commission);
+  if (price == null && commission == null) check(await sb.from('session_fees').delete().eq('session_id', sessionId));
+  else check(await sb.from('session_fees').upsert({ session_id: sessionId, price, commission }));
+}
+
 async function addSession(b, doctorId) {
   if (!doctorId) throw new Error(t('err.pickDoctor'));
   const s = sessionPayload(b);
+  checkFees(b);
   s.patient_id = await ensurePatient(b);
   const row = { ...s, doctor_id: doctorId, client_ref: b.client_ref || newRef() };
   const { data, error } = await sb.from('sessions').insert(row).select('id').maybeSingle();
   if (error?.code === '23505') return { linkedVisit: false, duplicate: true }; // already stored (retry)
   if (error) throw Object.assign(new Error(friendly(error)), { network: isNetworkError(error) });
+  if (data) await saveFee(data.id, b);
   const linked = data ? check(await sb.from('appointments').select('id').eq('session_id', data.id)) : [];
   patientCache.stale = true;
   return { linkedVisit: linked.length > 0 };
 }
 async function updateSession(id, b) {
   const s = sessionPayload(b);
+  checkFees(b);
   s.patient_id = await ensurePatient(b);
   const rows = check(await sb.from('sessions').update(s).eq('id', id).select('id'));
   if (!rows.length) throw new Error(t('err.notAllowed'));
+  await saveFee(id, b);
 }
 
 // ---------- patients ----------
@@ -342,7 +364,7 @@ function csvCell(v) {
 }
 async function downloadCsv(filters) {
   const rows = await listSessions(filters);
-  const cols = ['session_date', 'session_time', 'doctor_name', 'patient_name', 'session_type', 'location', 'location_url', 'duration_min', 'notes', 'created_at'];
+  const cols = ['session_date', 'session_time', 'doctor_name', 'patient_name', 'session_type', 'location', 'location_url', 'duration_min', 'notes', ...(isFounder() ? ['price', 'commission'] : []), 'created_at'];
   const csv = '\uFEFF' + [cols.join(','), ...rows.map(r => cols.map(c => csvCell(r[c])).join(','))].join('\r\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -366,6 +388,7 @@ const icons = {
   patients: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 21c0-4 3-6.5 7-6.5 1.4 0 2.7.3 3.8.8"/><path d="M18 14v7M14.5 17.5h7"/></svg>',
   log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
   overview: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>',
+  calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="M7.5 13h2M11 13h2M14.5 13h2M7.5 17h2M11 17h2" stroke-linecap="round"/></svg>',
   schedule: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
   map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/></svg>',
   inbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 13 6.5 5h11L20 13v6H4z"/><path d="M4 13h4.5l1.5 2.5h4l1.5-2.5H20"/></svg>',
