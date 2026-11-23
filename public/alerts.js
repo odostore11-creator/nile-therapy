@@ -23,6 +23,11 @@ function drawAlerts() {
   const navKey = doctor ? 'requests' : 'coverage';
   document.querySelectorAll(`.nav[href="#/${navKey}"] .nav-badge, .tab[href="#/${navKey}"] .nav-badge`).forEach(b => b.remove());
   if (n) document.querySelectorAll(`.nav[href="#/${navKey}"], .tab[href="#/${navKey}"]`).forEach(a => a.insertAdjacentHTML('beforeend', `<span class="nav-badge ${doctor ? '' : 'red'}">${n}</span>`));
+  document.querySelectorAll('.nav-group').forEach(g => {
+    g.querySelector('.nav-sum .nav-badge')?.remove();
+    const b = g.querySelector('.nav-sub .nav-badge');
+    if (b) g.querySelector('.nav-sum').insertAdjacentHTML('beforeend', `<span class="${b.className} sum-badge">${b.textContent}</span>`);
+  });
   if (!slot) return;
   const onPage = location.hash.startsWith(`#/${navKey}`);
   if (!n || onPage) { slot.innerHTML = ''; return; }

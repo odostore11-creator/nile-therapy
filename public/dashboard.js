@@ -136,7 +136,7 @@ async function overviewPage(main) {
         ${upcoming.length ? `<div class="table-wrap cards"><table><thead><tr><th>${t('th.date')}</th><th>${t('th.doctor')}</th><th>${t('th.patient')}</th><th>${t('th.type')}</th><th>${t('th.location')}</th></tr></thead><tbody>
           ${upcoming.slice(0, 12).map(a => `<tr><td class="c-date" style="white-space:nowrap">${fmtDay(a.appt_date, { weekday: 'short', day: 'numeric', month: 'short' })}<span class="muted small c-time">${esc(a.appt_time)}</span></td>
             <td class="c-doctor" dir="auto">${esc(a.doctor_name)}</td><td class="c-patient" dir="auto"><strong>${esc(a.patient_name)}</strong></td>
-            <td class="c-type">${a.session_type ? `<span class="pill ${typeClass(a.session_type)}">${esc(typeLabel(a.session_type))}</span>` : ''}</td><td class="c-loc" dir="auto">${esc(a.location)}</td></tr>`).join('')}
+            <td class="c-type">${a.session_type ? `<span class="pill ${typeClass(a.session_type)}">${esc(typeLabel(a.session_type))}</span>` : ''}</td><td class="c-loc"><bdi>${esc(a.location)}</bdi></td></tr>`).join('')}
           </tbody></table></div>${upcoming.length > 12 ? `<p class="muted small">${t('ov.more', { n: upcoming.length - 12 })}</p>` : ''}`
           : `<p class="muted small">${t('ov.nothingBooked')} <a href="#/schedule">${t('ov.toSchedule')}</a></p>`}
       </section>

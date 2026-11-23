@@ -92,13 +92,22 @@ function renderLogin() {
 // ---------- layout ----------
 function shell(active, renderPage) {
   const u = state.user;
-  const nav = u.role === 'admin'
-    ? [['overview', t('nav.overview'), icons.overview], ['sessions', t('nav.sessions'), icons.sessions], ['patients', t('nav.patients'), icons.patients], ['schedule', t('nav.schedule'), icons.schedule],
-       ['calendar', t('nav.calendar'), icons.calendar],
-       ['coverage', t('nav.coverage'), icons.map],
-       ['doctors', t('nav.doctors'), icons.doctors], ['report', t('nav.report'), icons.report], ['history', t('nav.history'), icons.history],
-       ['chat', t('nav.chat'), icons.chat]]
-    : [['log', t('nav.today'), icons.today], ['schedule', t('nav.mySchedule'), icons.schedule], ['requests', t('nav.openPatients'), icons.map]];
+  // Founders' menu: a few top items plus collapsible groups (the group holding the open page is
+  // always open; other groups remember open/closed on this device). Doctors keep a short flat list.
+  const I = (k, label, ic) => [k, label, ic];
+  const groups = u.role === 'admin'
+    ? [{ items: [I('overview', t('nav.overview'), icons.overview)] },
+       { key: 'work', label: t('navg.work'), icon: icons.sessions, items: [I('sessions', t('nav.sessions'), icons.sessions), I('schedule', t('nav.schedule'), icons.schedule), I('calendar', t('nav.calendar'), icons.calendar)] },
+       { key: 'team', label: t('navg.team'), icon: icons.doctors, items: [I('doctors', t('nav.doctors'), icons.doctors), I('patients', t('nav.patients'), icons.patients), I('coverage', t('nav.coverage'), icons.map)] },
+       { key: 'records', label: t('navg.records'), icon: icons.report, items: [I('report', t('nav.report'), icons.report), I('history', t('nav.history'), icons.history)] },
+       { items: [I('chat', t('nav.chat'), icons.chat)] }]
+    : [{ items: [I('log', t('nav.today'), icons.today), I('schedule', t('nav.mySchedule'), icons.schedule), I('requests', t('nav.openPatients'), icons.map)] }];
+  const nav = groups.flatMap(g => g.items);
+  const navLink = ([k, label, ic]) => `<a class="nav ${active === k ? 'on' : ''}" href="#/${k}" ${active === k ? 'aria-current="page"' : ''}>${ic}<span>${label}</span></a>`;
+  const groupOpen = g => g.items.some(i => i[0] === active) || (() => { try { return localStorage.getItem('nt_navg_' + g.key) === '1'; } catch { return false; } })();
+  const navHtml = groups.map(g => !g.key ? g.items.map(navLink).join('')
+    : `<details class="nav-group" data-g="${g.key}" ${groupOpen(g) ? 'open' : ''}><summary class="nav nav-sum">${g.icon}<span>${esc(g.label)}</span><span class="chev" aria-hidden="true"></span></summary>
+        <div class="nav-sub">${g.items.map(navLink).join('')}</div></details>`).join('');
   $app.innerHTML = `
   <div class="shell ${u.role === 'doctor' ? 'doc-shell' : ''}">
     <aside class="side">
@@ -108,7 +117,7 @@ function shell(active, renderPage) {
         <button type="button" class="menu-btn" id="menu" aria-expanded="false" aria-controls="sidemenu" aria-label="${esc(t('nav.menu'))}">☰</button>
       </div>
       <div class="side-menu" id="sidemenu">
-      <nav class="nav-list">${nav.map(([k, label, ic]) => `<a class="nav ${active === k ? 'on' : ''}" href="#/${k}" ${active === k ? 'aria-current="page"' : ''}>${ic}${label}</a>`).join('')}</nav>
+      <nav class="nav-list">${navHtml}</nav>
       <div class="spacer"></div>
       <div class="me">
         <strong dir="auto">${esc(u.full_name)}</strong><span class="muted" dir="auto">${esc(u.title || t(u.role === 'admin' ? 'role.founder' : 'role.doctor'))}</span>
@@ -120,6 +129,7 @@ function shell(active, renderPage) {
     ${u.role === 'doctor' ? `<nav class="tabbar" aria-label="${esc(t('nav.menu'))}">${nav.map(([k, label, ic]) => `<a class="tab ${active === k ? 'on' : ''}" href="#/${k}" ${active === k ? 'aria-current="page"' : ''}>${ic}<span>${label}</span></a>`).join('')}</nav>` : ''}
   </div>`;
   const side = $app.querySelector('.side'), menuBtn = document.getElementById('menu');
+  $app.querySelectorAll('.nav-group').forEach(g => g.addEventListener('toggle', () => { try { localStorage.setItem('nt_navg_' + g.dataset.g, g.open ? '1' : '0'); } catch { /* fine */ } }));
   menuBtn.onclick = () => { const open = side.classList.toggle('open'); menuBtn.setAttribute('aria-expanded', open); menuBtn.textContent = open ? '✕' : '☰'; };
   showInstallTip();
   startAlerts(); // keeps checking every minute; redraws the alert/badge right away on each page

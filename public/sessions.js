@@ -30,7 +30,7 @@ function sessionFormHtml(s = {}, { doctors, future = false, fees = false } = {})
     </div></fieldset>` : ''}`;
 }
 const feeHtml = s => (isFounder() && (s.price != null || s.commission != null)
-  ? `<span class="fee-tag" title="${esc(t('fee.founderOnly'))}">${s.price != null ? `${esc(t('fee.priceShort'))} <bdi>${s.price}</bdi>` : ''}${s.price != null && s.commission != null ? ' · ' : ''}${s.commission != null ? `${esc(t('fee.commissionShort'))} <bdi>${s.commission}</bdi>` : ''}</span>` : '');
+  ? `<span class="fee-tag" dir="auto" title="${esc(t('fee.founderOnly'))}">${s.price != null ? `${esc(t('fee.priceShort'))} <bdi>${s.price}</bdi>` : ''}${s.price != null && s.commission != null ? ' · ' : ''}${s.commission != null ? `${esc(t('fee.commissionShort'))} <bdi>${s.commission}</bdi>` : ''}</span>` : '');
 // Patient name with suggestions from the patients list, plus optional phone and condition.
 function patientFieldHtml(s = {}, { open = false } = {}) {
   return `<div class="field patient-field"><label for="pn-${s.id || 'new'}">${t('form.patient')}</label>
@@ -140,7 +140,7 @@ function sessionRows(list, { showDoctor = true, editable = false } = {}) {
       ${showDoctor ? `<td class="c-doctor"><a href="#/doctors/${s.doctor_id}" dir="auto">${esc(s.doctor_name)}</a></td>` : ''}
       <td class="c-patient" dir="auto" style="white-space:nowrap"><strong>${esc(s.patient_name)}</strong></td>
       <td class="c-type">${s.session_type ? `<span class="pill ${typeClass(s.session_type)}">${esc(typeLabel(s.session_type))}</span>` : ''}</td>
-      <td class="c-loc" dir="auto">${esc(s.location)}${mapLinkHtml(s.location_url)}</td>
+      <td class="c-loc"><bdi>${esc(s.location)}</bdi>${mapLinkHtml(s.location_url)}</td>
       <td class="c-min" data-unit="${esc(t('th.min'))}">${esc(s.duration_min ?? '')}</td>
       <td class="c-notes small" dir="auto">${esc(s.notes)}${feeHtml(s)}</td>
       ${editable ? `<td class="c-edit"><button class="btn ghost sm" data-edit="${s.id}">${t('common.edit')}</button></td>` : ''}

@@ -756,7 +756,7 @@ th { background: var(--surface-2); }
   --grad-water: linear-gradient(155deg, #f4faf8 0%, #e3f6f1 45%, #c9ece3 100%);
 }
 body { background: linear-gradient(180deg, #e6f4f0 0, var(--bg) 380px) no-repeat, var(--bg); }
-.side { position: relative; overflow: hidden; }
+.side { overflow: hidden; } /* keeps position: sticky from above; clips the watermark */
 .side::after { content: ""; position: absolute; width: 240px; height: 240px; inset-inline-end: -70px; bottom: -60px; pointer-events: none; opacity: .07;
   background: url("logo-mark.png") center / contain no-repeat; filter: brightness(0) invert(1); }
 .login-art::before { content: ""; position: absolute; width: 420px; height: 420px; inset-inline-end: -110px; top: -90px; opacity: .08; pointer-events: none;
@@ -845,3 +845,25 @@ body { background: linear-gradient(180deg, #e6f4f0 0, var(--bg) 380px) no-repeat
 }
 .cal-bar .seg { overflow-x: auto; max-width: 100%; scrollbar-width: none; }
 .cal-bar .seg button { white-space: nowrap; flex: none; }
+
+/* Side menu: stays in view while the page scrolls; scrolls itself on short screens. */
+@media (min-width: 981px) {
+  .side-menu { min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .25) transparent; }
+}
+/* Collapsible menu groups (founders). */
+.nav-group { border-radius: var(--radius-sm); }
+.nav-sum { list-style: none; user-select: none; }
+.nav-sum::-webkit-details-marker { display: none; }
+.nav-sum .chev { margin-inline-start: auto; width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); opacity: .7; transition: transform .2s; flex: none; }
+[dir="rtl"] .nav-sum .chev { transform: rotate(135deg); }
+.nav-group[open] > .nav-sum .chev { transform: rotate(45deg); }
+.nav-sum:has(.nav-badge) .chev { margin-inline-start: 8px; order: 2; }
+.nav-group[open] .sum-badge { display: none; }
+.nav-group[open] > .nav-sum { color: #fff; }
+.nav-sub { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 6px; padding-inline-start: 14px; border-inline-start: 1px solid rgba(255, 255, 255, .14); margin-inline-start: 20px; }
+.nav-sub .nav { padding: 8px 10px; font-weight: 500; font-size: 14px; }
+.nav-sub .nav svg { width: 16px; height: 16px; }
+@media (prefers-reduced-motion: reduce) { .nav-sum .chev { transition: none; } }
+/* Tables: Arabic names/places in English pages line up with their column (and the other way round). */
+html[dir="ltr"] td[dir="auto"], html[dir="ltr"] td [dir="auto"] { text-align: left; }
+html[dir="rtl"] td[dir="auto"], html[dir="rtl"] td [dir="auto"] { text-align: right; }
