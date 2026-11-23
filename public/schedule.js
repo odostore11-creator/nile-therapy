@@ -209,7 +209,7 @@ async function schedulePage(main) {
   main.innerHTML = `
     <div class="head">
       <div><h1>${t(founder ? 'sched.title' : 'sched.myTitle')}</h1><p class="muted">${t(founder ? 'sched.sub' : 'sched.mySub')}</p></div>
-      <button class="btn" id="book">${t('sched.book')}</button>
+      ${founder ? `<button class="btn" id="book">${t('sched.book')}</button>` : ''}
     </div>
     <div class="toolbar sched-bar">
       <div class="seg" role="group" aria-label="${esc(t('sched.week'))}">
@@ -239,7 +239,7 @@ async function schedulePage(main) {
     const fromVisits = new Set(list.map(a => a.session_id).filter(Boolean));
     logged = logged.filter(s => !fromVisits.has(s.id));
     const td = today();
-    $('weeknote').innerHTML = list.some(a => a.status !== 'cancelled') || logged.length ? '' : `<p class="empty-note">${t('sched.emptyWeek')} <button type="button" class="link" id="book2">${t('sched.book')}</button></p>`;
+    $('weeknote').innerHTML = list.some(a => a.status !== 'cancelled') || logged.length ? '' : `<p class="empty-note">${t('sched.emptyWeek')} ${founder ? `<button type="button" class="link" id="book2">${t('sched.book')}</button>` : ''}</p>`;
     $('book2')?.addEventListener('click', () => bookVisitModal(load, { doctors }));
     const pastDays = Array.from({ length: 7 }, (_, i) => addDays(from, i)).filter(d => d < td).length;
     if (pastDays && pastDays < 7 && !state.schedShowPast) {
@@ -265,6 +265,6 @@ async function schedulePage(main) {
   $('thisweek').onclick = () => { state.schedWeek = weekStart(today()); load(); };
   if (founder) $('sdoc').onchange = e => { state.schedDoctor = e.target.value || null; load(); };
   $('showcx').onchange = e => { state.schedShowCancelled = e.target.checked; load(); };
-  $('book').onclick = () => bookVisitModal(load, { doctors });
+  if (founder) $('book').onclick = () => bookVisitModal(load, { doctors });
   load();
 }

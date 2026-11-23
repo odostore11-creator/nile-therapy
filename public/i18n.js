@@ -17,7 +17,7 @@ const STRINGS = {
     'login.title': 'Sign in',
     'login.help': 'Use the username and password Nile Therapy gave you.',
     'login.username': 'Username', 'login.password': 'Password',
-    'login.ph.admin': 'e.g. abdurrahman', 'login.ph.doctor': 'e.g. dr.mona',
+    'login.ph.admin': 'e.g. mostafa', 'login.ph.doctor': 'e.g. essam',
     'login.go.admin': 'Enter admin dashboard', 'login.go.doctor': 'Enter doctor portal',
     'login.wrongTabFounder': 'This is a founder account. Choose "Founder" above, then sign in.', 'login.wrongTabDoctor': 'This is a doctor account. Choose "Doctor" above, then sign in.',
     'role.founder': 'Founder', 'role.doctor': 'Doctor',
@@ -45,8 +45,8 @@ const STRINGS = {
     'th.date': 'Date', 'th.doctor': 'Doctor', 'th.patient': 'Patient', 'th.type': 'Type',
     'th.location': 'Location', 'th.min': 'Min', 'th.notes': 'Notes',
 
-    'portal.hi': 'Hi, {name}', 'portal.sub': 'Log every Nile Therapy session right after you finish it.',
-    'portal.log': 'Log a session', 'portal.submit': 'Submit session', 'portal.mine': 'My sessions',
+    'portal.hi': 'Hi, {name}', 'portal.sub': 'Your visits come from the founders and website bookings. After each visit, mark it done or log the session.',
+    'portal.log': 'Log a completed session', 'portal.submit': 'Submit session', 'portal.mine': 'My sessions',
     'portal.total': '{n} total', 'portal.thanks': 'Session logged — thank you',
 
     'sessions.title': 'Sessions', 'sessions.sub': 'Every session your doctors have logged.',
@@ -120,7 +120,7 @@ const STRINGS = {
     'ov.coming': 'Coming up (next 7 days)', 'ov.more': '+ {n} more on the schedule', 'ov.nothingBooked': 'Nothing booked for the next 7 days.',
 
     'sched.title': 'Schedule', 'sched.sub': "Everyone's booked visits and logged sessions. Click one to change it or mark it done.",
-    'sched.myTitle': 'My schedule', 'sched.mySub': 'Your booked visits and logged sessions. When you finish a visit, open it and press "Mark done".',
+    'sched.myTitle': 'My schedule', 'sched.mySub': 'Visits booked for you by the founders or the website, and the sessions you logged. When you finish a visit, open it and press "Mark done".',
     'sched.book': '+ Book a visit', 'sched.bookTitle': 'Book a visit', 'sched.bookBtn': 'Book visit', 'sched.editTitle': 'Edit visit',
     'sched.booked': 'Visit booked', 'sched.saved': 'Visit updated',
     'sched.week': 'Week', 'sched.prev': 'Previous week', 'sched.next': 'Next week', 'sched.thisWeek': 'This week', 'sched.today': 'Today',
@@ -362,7 +362,7 @@ const STRINGS = {
     'login.title': 'تسجيل الدخول',
     'login.help': 'استخدم اسم المستخدم وكلمة المرور اللذين حصلت عليهما من نايل ثيرابي.',
     'login.username': 'اسم المستخدم', 'login.password': 'كلمة المرور',
-    'login.ph.admin': 'abdurrahman', 'login.ph.doctor': 'dr.mona', // the box is left-to-right (usernames are English)
+    'login.ph.admin': 'mostafa', 'login.ph.doctor': 'essam', // the box is left-to-right (usernames are English)
     'login.go.admin': 'الدخول إلى لوحة الإدارة', 'login.go.doctor': 'الدخول إلى بوابة الطبيب',
     'login.wrongTabFounder': 'هذا حساب مؤسس. اختر «مؤسس» بالأعلى ثم سجّل الدخول.', 'login.wrongTabDoctor': 'هذا حساب طبيب. اختر «طبيب» بالأعلى ثم سجّل الدخول.',
     'role.founder': 'مؤسس', 'role.doctor': 'طبيب',
@@ -390,8 +390,8 @@ const STRINGS = {
     'th.date': 'التاريخ', 'th.doctor': 'الطبيب', 'th.patient': 'المريض', 'th.type': 'النوع',
     'th.location': 'المكان', 'th.min': 'دقيقة', 'th.notes': 'ملاحظات',
 
-    'portal.hi': 'أهلاً، {name}', 'portal.sub': 'سجّل كل جلسة لنايل ثيرابي فور انتهائك منها.',
-    'portal.log': 'تسجيل جلسة', 'portal.submit': 'إرسال الجلسة', 'portal.mine': 'جلساتي',
+    'portal.hi': 'أهلاً، {name}', 'portal.sub': 'مواعيدك تأتي من المؤسسين وحجوزات الموقع. بعد كل زيارة سجّلها كمنجزة أو سجّل الجلسة.',
+    'portal.log': 'تسجيل جلسة تمت', 'portal.submit': 'إرسال الجلسة', 'portal.mine': 'جلساتي',
     'portal.total': 'الإجمالي: {n}', 'portal.thanks': 'تم تسجيل الجلسة، شكراً لك',
 
     'sessions.title': 'الجلسات', 'sessions.sub': 'كل الجلسات التي سجّلها أطباؤك.',
@@ -465,7 +465,7 @@ const STRINGS = {
     'ov.coming': 'المواعيد القادمة (7 أيام)', 'ov.more': '+ {n} مواعيد أخرى في الجدول', 'ov.nothingBooked': 'لا توجد مواعيد في الأيام السبعة القادمة.',
 
     'sched.title': 'المواعيد', 'sched.sub': 'مواعيد كل الأطباء والجلسات المسجلة. اضغط على أي منها لتعديله أو لتسجيله كمنجز.',
-    'sched.myTitle': 'مواعيدي', 'sched.mySub': 'مواعيدك وجلساتك المسجلة. عند الانتهاء من زيارة، افتحها واضغط «تسجيل كمنجز».',
+    'sched.myTitle': 'مواعيدي', 'sched.mySub': 'المواعيد التي حجزها لك المؤسسون أو الموقع، والجلسات التي سجّلتها. عند الانتهاء من زيارة، افتحها واضغط «تسجيل كمنجز».',
     'sched.book': '+ حجز موعد', 'sched.bookTitle': 'حجز موعد', 'sched.bookBtn': 'حجز الموعد', 'sched.editTitle': 'تعديل الموعد',
     'sched.booked': 'تم حجز الموعد', 'sched.saved': 'تم تحديث الموعد',
     'sched.week': 'الأسبوع', 'sched.prev': 'الأسبوع السابق', 'sched.next': 'الأسبوع التالي', 'sched.thisWeek': 'هذا الأسبوع', 'sched.today': 'اليوم',

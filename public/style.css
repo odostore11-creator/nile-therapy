@@ -747,3 +747,27 @@ th { background: var(--surface-2); }
   .tab .nav-badge { position: absolute; top: 2px; inset-inline-end: calc(50% - 22px); margin: 0; }
 }
 .pill.web { background: var(--water-soft); color: var(--brand-ink); }
+
+/* ===== Lotus brand pass (2026-11-23): richer teal gradients, no leftover blues ===== */
+:root {
+  --grad-brand: linear-gradient(135deg, #0f7d74 0%, #14998a 100%);
+  --grad-brand-hover: linear-gradient(135deg, #0b6a62 0%, #0f8679 100%);
+  --grad-navy: linear-gradient(165deg, #083e49 0%, #0b4f5c 35%, #0f7d74 85%, #1a9886 100%);
+  --grad-water: linear-gradient(155deg, #f4faf8 0%, #e3f6f1 45%, #c9ece3 100%);
+}
+body { background: linear-gradient(180deg, #e6f4f0 0, var(--bg) 380px) no-repeat, var(--bg); }
+.side { position: relative; overflow: hidden; }
+.side::after { content: ""; position: absolute; width: 240px; height: 240px; inset-inline-end: -70px; bottom: -60px; pointer-events: none; opacity: .07;
+  background: url("logo-mark.png") center / contain no-repeat; filter: brightness(0) invert(1); }
+.login-art::before { content: ""; position: absolute; width: 420px; height: 420px; inset-inline-end: -110px; top: -90px; opacity: .08; pointer-events: none;
+  background: url("logo-mark.png") center / contain no-repeat; }
+.stat::before { background: linear-gradient(90deg, #9fdccf, #0f7d74); }
+.stat:nth-child(2)::before { background: linear-gradient(90deg, #c9ece3, #5cc9b5); }
+.stat:nth-child(3)::before { background: linear-gradient(90deg, #5cc9b5, #0b4f5c); }
+.stat:nth-child(4)::before { background: linear-gradient(90deg, #f4b9a6, #c8502f); }
+.stat:nth-child(5)::before { background: linear-gradient(90deg, #9fdccf, #0b4f5c); }
+.col .bar { background: linear-gradient(to top, #9fdccf, #d6f0ea); }
+.col:hover .bar { background: linear-gradient(to top, #12917f, #5cc9b5); }
+.bl-bar { background: linear-gradient(90deg, #0f7d74, #5cc9b5); }
+.avatar { background: linear-gradient(135deg, #f4faf8, #c9ece3); color: var(--brand-ink); }
+.brand-mark { background: #fff; box-shadow: 0 4px 14px rgba(0, 0, 0, .15); }
