@@ -867,3 +867,40 @@ body { background: linear-gradient(180deg, #e6f4f0 0, var(--bg) 380px) no-repeat
 /* Tables: Arabic names/places in English pages line up with their column (and the other way round). */
 html[dir="ltr"] td[dir="auto"], html[dir="ltr"] td [dir="auto"] { text-align: left; }
 html[dir="rtl"] td[dir="auto"], html[dir="rtl"] td [dir="auto"] { text-align: right; }
+
+/* Technical team card (side menu). */
+.tech-team { margin: 10px 0 0; border-radius: 12px; background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .1); color: #e3eef8; position: relative; z-index: 1; }
+.tech-team summary { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; list-style: none; border-radius: 12px; }
+.tech-team summary::-webkit-details-marker { display: none; }
+.tech-team summary:hover { background: rgba(255, 255, 255, .06); }
+.tech-team summary:focus-visible { outline: 2px solid var(--water); outline-offset: 2px; }
+.tech-faces { display: flex; flex: none; }
+.tech-faces i, .tech-av { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #9fdccf, #5cc9b5); color: #0b4f5c; font-style: normal; font-size: 11px; font-weight: 700; border: 2px solid #0d5f69; }
+.tech-faces i + i { margin-inline-start: -9px; background: linear-gradient(135deg, #f4faf8, #c9ece3); }
+.tech-head { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.tech-head b { color: #fff; font-size: 13px; }
+.tech-head span { font-size: 11.5px; color: #a9c0d6; }
+.tech-team .chev { margin-inline-start: auto; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); opacity: .6; transition: transform .2s; flex: none; }
+.tech-team[open] .chev { transform: rotate(-135deg); }
+.tech-intro { margin: 0 12px 8px; font-size: 12px; line-height: 1.5; color: #c4d6e4; }
+.tech-person { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid rgba(255, 255, 255, .08); }
+.tech-av { width: 34px; height: 34px; font-size: 12px; flex: none; border: 0; }
+.tech-who { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.3; }
+.tech-who b { color: #fff; font-size: 13px; }
+.tech-who span { font-size: 11.5px; color: #a9c0d6; }
+.tech-btns { display: flex; gap: 6px; flex: none; }
+.tech-btn { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: #fff; text-decoration: none; transition: transform .15s, filter .15s; }
+.tech-btn svg { width: 17px; height: 17px; }
+.tech-btn.wa { background: #25d366; }
+.tech-btn.call { background: rgba(255, 255, 255, .16); }
+.tech-btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+.tech-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+@media (max-width: 980px) { .tech-team { margin: 10px 0 4px; } .tech-btn { width: 40px; height: 40px; } }
+@media (prefers-reduced-motion: reduce) { .tech-team .chev, .tech-btn { transition: none; } }
+/* Name + buttons on one line, the role underneath across the card (the side menu is narrow). */
+.tech-person { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; grid-template-areas: "av name btns" "av role role"; column-gap: 10px; row-gap: 2px; align-items: center; }
+.tech-av { grid-area: av; align-self: start; margin-top: 2px; }
+.tech-who { display: contents; }
+.tech-who b { grid-area: name; }
+.tech-who span { grid-area: role; }
+.tech-btns { grid-area: btns; }

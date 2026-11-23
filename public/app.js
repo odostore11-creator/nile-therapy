@@ -119,6 +119,7 @@ function shell(active, renderPage) {
       <div class="side-menu" id="sidemenu">
       <nav class="nav-list">${navHtml}</nav>
       <div class="spacer"></div>
+      ${techTeamHtml()}
       <div class="me">
         <strong dir="auto">${esc(u.full_name)}</strong><span class="muted" dir="auto">${esc(u.title || t(u.role === 'admin' ? 'role.founder' : 'role.doctor'))}</span>
         <div class="row"><button id="pw">${t('me.password')}</button><button id="out">${t('me.logout')}</button>${langButton()}<button id="install" hidden>${t('install.btn')}</button></div>
@@ -132,6 +133,7 @@ function shell(active, renderPage) {
   $app.querySelectorAll('.nav-group').forEach(g => g.addEventListener('toggle', () => { try { localStorage.setItem('nt_navg_' + g.dataset.g, g.open ? '1' : '0'); } catch { /* fine */ } }));
   menuBtn.onclick = () => { const open = side.classList.toggle('open'); menuBtn.setAttribute('aria-expanded', open); menuBtn.textContent = open ? '✕' : '☰'; };
   showInstallTip();
+  $app.querySelector('.tech-team')?.addEventListener('toggle', e => { try { localStorage.setItem('nt_tech_open', e.target.open ? '1' : '0'); } catch { /* fine */ } });
   startAlerts(); // keeps checking every minute; redraws the alert/badge right away on each page
   wireInstall();
   wireLangButtons();
@@ -146,6 +148,33 @@ function shell(active, renderPage) {
   flushOutbox(); // anything saved while offline goes out now
 }
 
+
+// ---------- technical team (side menu) ----------
+// Who built and runs the portal, with WhatsApp and call buttons for help. Shown to founders and doctors.
+const TECH_TEAM = [
+  { name: { en: 'Omar Khaled', ar: 'عمر خالد' }, role: 'tech.role.dev', phone: '01556059711' },
+  { name: { en: 'Omar Sameh', ar: 'عمر سامح' }, role: 'tech.role.ops', phone: '01095204422' },
+];
+const intlPhone = p => '20' + String(p).replace(/\D/g, '').replace(/^0/, ''); // 01x… -> 201x…
+function techTeamHtml() {
+  let open = false;
+  try { open = localStorage.getItem('nt_tech_open') === '1'; } catch { /* storage blocked */ }
+  const msg = encodeURIComponent(t('tech.waMsg'));
+  return `<details class="tech-team" ${open ? 'open' : ''}>
+    <summary><span class="tech-faces" aria-hidden="true">${TECH_TEAM.map(m => `<i>${esc(initials(m.name[LANG] || m.name.en))}</i>`).join('')}</span>
+      <span class="tech-head"><b>${t('tech.title')}</b><span>${t('tech.sub')}</span></span><span class="chev" aria-hidden="true"></span></summary>
+    <p class="tech-intro">${t('tech.intro')}</p>
+    ${TECH_TEAM.map(m => {
+      const name = m.name[LANG] || m.name.en, num = intlPhone(m.phone);
+      return `<div class="tech-person"><span class="tech-av" aria-hidden="true">${esc(initials(name))}</span>
+        <span class="tech-who"><b dir="auto">${esc(name)}</b><span>${t(m.role)}</span></span>
+        <span class="tech-btns">
+          <a class="tech-btn wa" href="https://wa.me/${num}?text=${msg}" target="_blank" rel="noopener noreferrer" aria-label="${esc(t('tech.wa', { name }))}" title="${esc(t('tech.wa', { name }))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.5c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3Z"/></svg></a>
+          <a class="tech-btn call" href="tel:+${num}" aria-label="${esc(t('tech.call', { name }))}" title="${esc(t('tech.call', { name }))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg></a>
+        </span></div>`;
+    }).join('')}
+  </details>`;
+}
 
 // ---------- "Add to home screen" ----------
 // Android/desktop Chrome offer an install prompt we can trigger from a button; iPhone needs
