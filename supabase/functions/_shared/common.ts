@@ -4,7 +4,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0';
 
 // Websites allowed to call these functions (CORS).
-const ALLOWED_ORIGINS = ['https://odostore11-creator.github.io', 'http://localhost:5500'];
+const ALLOWED_ORIGINS = ['https://odostore11-creator.github.io', 'https://www.niletherapy.org', 'https://niletherapy.org', 'http://localhost:5500', 'http://localhost:5701'];
 
 export function corsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get('Origin') ?? '';

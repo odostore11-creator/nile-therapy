@@ -41,7 +41,7 @@ function renderLogin() {
   $app.innerHTML = `
   <div class="login">
     <section class="login-art">
-      <img class="login-logo" src="logo-full.png" alt="Nile Therapy" width="280" height="238">
+      <img class="login-logo" src="logo-full.png" alt="Nile Therapy" width="280" height="272">
       <div>
         <h1>${t('login.tagline')}</h1>
         <p>${t('login.intro')}</p>

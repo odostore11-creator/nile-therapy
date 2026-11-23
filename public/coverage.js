@@ -48,7 +48,8 @@ const listRequests = async () => check(await sb.from('patient_requests').select(
 const callRpc = async (fn, args) => check(await sb.rpc(fn, args));
 
 const minutesLeft = r => Math.max(0, OPEN_MINUTES - Math.floor((Date.now() - Date.parse(r.opened_at)) / 60000));
-const needsFounders = r => r.status === 'open' && (r.reason === 'out_of_area' || r.reason === 'visit_cancelled' || minutesLeft(r) === 0);
+const hasPin = r => r.lat != null && r.lng != null;
+const needsFounders = r => r.status === 'open' && (['out_of_area', 'visit_cancelled', 'no_location'].includes(r.reason) || minutesLeft(r) === 0);
 const requestState = r => (r.status === 'cancelled' ? 'cancelled' : r.status !== 'open' ? 'done' : needsFounders(r) ? 'founders' : 'waiting');
 
 async function geocode(q) {
@@ -117,7 +118,7 @@ function requestSummary(r, names) {
   const when = `${fmtDay(r.preferred_date, { weekday: 'short', day: 'numeric', month: 'short' })}${r.preferred_time ? ' · ' + esc(r.preferred_time.slice(0, 5)) : ''}`;
   const st = requestState(r);
   const status = st === 'done' ? `✓ ${t('req.st.' + r.status, { name: `<bdi>${esc(names.get(r.assigned_doctor_id) || '?')}</bdi>` })}`
-    : st === 'founders' ? `⚠ ${t(r.reason === 'out_of_area' ? 'req.st.outOfArea' : r.reason === 'visit_cancelled' ? 'req.st.visitCancelled' : 'req.st.overdue')}`
+    : st === 'founders' ? `⚠ ${t({ out_of_area: 'req.st.outOfArea', visit_cancelled: 'req.st.visitCancelled', no_location: 'req.st.noLocation' }[r.reason] || 'req.st.overdue')}`
     : st === 'waiting' ? `⏳ ${t('req.st.waiting', { n: minutesLeft(r) })}` : `✕ ${t('req.st.cancelled')}`;
   return { when, status, st };
 }
@@ -161,7 +162,7 @@ async function coveragePage(main) {
     }
     // Logged sessions (last 30 days): small dots in the doctor's area color.
     for (const x of logged) loggedDot(x, areas.find(a => a.doctor_id === x.doctor_id)?.color || '#8a97a5', names.get(x.doctor_id)).addTo(sessLayer);
-    for (const r of requests.filter(x => x.status !== 'cancelled')) {
+    for (const r of requests.filter(x => x.status !== 'cancelled' && hasPin(x))) {
       const { when, status, st } = requestSummary(r, names);
       // Booked patients take their doctor's area color (with a ✓) and show the doctor's name, so it's clear whose they are.
       const docColor = st === 'done' && areas.find(a => a.doctor_id === r.assigned_doctor_id)?.color;
@@ -196,10 +197,12 @@ async function coveragePage(main) {
     const list = groups[state.covTab];
     $('reqlist').innerHTML = list.length ? list.map(r => {
       const { when, status, st } = requestSummary(r, names);
-      return `<div class="req-row ${st}"><div><b dir="auto">${esc(r.patient_name)}</b> <span class="muted small">${when}</span>
+      const extra = [r.governorate && esc(r.governorate), r.preferred_slot && r.preferred_slot !== 'any' && t('req.slot.' + r.preferred_slot), r.service && t('req.svc.' + r.service)].filter(Boolean).join(' · ');
+      return `<div class="req-row ${st}"><div><b dir="auto">${esc(r.patient_name)}</b> ${r.source === 'website' ? `<span class="pill web">${t('req.fromWebsite')}</span>` : ''} <span class="muted small">${when}</span>
           <div class="small">${status}${r.nearest_km != null && st !== 'done' ? ` · ${t('req.nearest', { name: `<bdi>${esc(names.get(r.nearest_doctor_id) || '?')}</bdi>`, km: r.nearest_km })}` : ''}</div>
-          ${r.address ? `<div class="muted small" dir="auto">${esc(r.address)}</div>` : ''}${r.phone ? `<div class="muted small"><bdi dir="ltr">${esc(r.phone)}</bdi></div>` : ''}</div>
-        <div class="req-actions"><button type="button" class="btn ghost sm" data-show="${r.id}">${t('cov.showOnMap')}</button>
+          ${r.address ? `<div class="muted small" dir="auto">${esc(r.address)}</div>` : ''}${extra ? `<div class="muted small" dir="auto">${extra}</div>` : ''}
+          ${r.condition ? `<div class="small" dir="auto">🩺 ${esc(r.condition)}</div>` : ''}${r.phone ? `<div class="muted small"><a href="tel:${esc(r.phone)}" dir="ltr">${esc(r.phone)}</a> · <a href="https://wa.me/${waNumber(r.phone) || ''}" target="_blank" rel="noopener">${t('req.whatsapp')}</a></div>` : ''}</div>
+        <div class="req-actions">${hasPin(r) ? `<button type="button" class="btn ghost sm" data-show="${r.id}">${t('cov.showOnMap')}</button>` : `<span class="muted small">${t('req.noPin')}</span>`}
           ${st === 'founders' || st === 'waiting' ? `<button type="button" class="btn sm" data-assign="${r.id}">${t('cov.assign')}</button><button type="button" class="btn danger sm" data-cancelreq="${r.id}">${t('common.cancel')}</button>` : ''}</div></div>`;
     }).join('') : `<div class="empty">${t('cov.empty.' + state.covTab)}</div>`;
     main.querySelectorAll('[data-show]').forEach(b => b.onclick = () => { const r = requests.find(x => x.id == b.dataset.show); map.setView([r.lat, r.lng], 14); $('map').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
@@ -372,7 +375,7 @@ async function assignModal(r, doctors, areas, onDone) {
   const load = id => appts.filter(a => a.doctor_id === id).length + sess.filter(s => s.doctor_id === id && !linked.has(s.id)).length;
   const rows = doctors.filter(d => d.active).map(d => {
     const a = areas.find(x => x.doctor_id === d.id);
-    return { d, n: load(d.id), km: a ? kmBetween([r.lat, r.lng], areaMiddle(a.coords)) : null };
+    return { d, n: load(d.id), km: a && hasPin(r) ? kmBetween([r.lat, r.lng], areaMiddle(a.coords)) : null };
   }).sort((x, y) => (x.km ?? 1e9) - (y.km ?? 1e9));
   modal(`<h2>${t('cov.assignTitle', { name: r.patient_name })}</h2>
     <p class="muted small">${t('cov.assignHelp', { date: fmtDay(r.preferred_date, { weekday: 'long', day: 'numeric', month: 'long' }), limit: DAILY_LIMIT })}</p>
@@ -420,7 +423,7 @@ async function myBookedPins() {
   const fromReq = new Set(reqs.map(r => r.appointment_id));
   const open = new Set(visits.map(a => a.id)); // only visits that are still planned
   return [
-    ...reqs.filter(r => !r.appointment_id || open.has(r.appointment_id)).map(r => ({ name: r.patient_name, lat: r.lat, lng: r.lng, date: r.preferred_date, time: r.preferred_time })),
+    ...reqs.filter(r => hasPin(r) && (!r.appointment_id || open.has(r.appointment_id))).map(r => ({ name: r.patient_name, lat: r.lat, lng: r.lng, date: r.preferred_date, time: r.preferred_time })),
     ...visits.filter(a => !fromReq.has(a.id)).map(a => ({ ...coordsFromText(a.location_url), name: a.patient_name, date: a.appt_date, time: a.appt_time }))
       .filter(p => p.lat != null),
   ];

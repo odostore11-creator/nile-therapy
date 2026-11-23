@@ -224,7 +224,7 @@ async function reportPage(main, arg) {
       </div>
     </div>
     <article class="report card">
-      <header class="rep-head"><img src="logo-full.png" alt="Nile Therapy" width="120" height="102"><div><h2>${t('rep.heading', { month: monthName })}</h2>
+      <header class="rep-head"><img src="logo-full.png" alt="Nile Therapy" width="120" height="117"><div><h2>${t('rep.heading', { month: monthName })}</h2>
         <p class="muted small">${t('rep.generated', { date: fmtDay(td, { day: 'numeric', month: 'long', year: 'numeric' }), name: state.user.full_name })}</p></div></header>
       <div class="stats rep-kpis">
         ${kpi(m.length, t('rep.sessions'), delta(m.length, p.length, partial ? t('ov.vsBefore') : t('rep.vsPrev')))}
