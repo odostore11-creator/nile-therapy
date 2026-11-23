@@ -37,13 +37,16 @@ const toLatLngs = coords => coords.map(([lng, lat]) => [lat, lng]);
 const pinIcon = (color, mark = '') => L.divIcon({ className: 'pin', html: `<span style="background:${color}">${mark}</span>`, iconSize: [22, 22], iconAnchor: [11, 11] });
 
 // ---------- data ----------
-const listAreas = async () => check(await sb.from('doctor_areas').select('doctor_id, coords, color'));
-async function saveArea(doctorId, latlngs, color) {
+// A doctor can have several areas. All of one doctor's areas share one color.
+const listAreas = async () => check(await sb.from('doctor_areas').select('id, doctor_id, name, coords, color').order('id'));
+async function saveArea(doctorId, areaId, latlngs, color, name = '') {
   const coords = latlngs.map(p => [+p.lng.toFixed(6), +p.lat.toFixed(6)]);
-  const updated = check(await sb.from('doctor_areas').update({ coords, color }).eq('doctor_id', doctorId).select('doctor_id'));
-  if (!updated.length) check(await sb.from('doctor_areas').insert({ doctor_id: doctorId, coords, color }));
+  if (areaId) check(await sb.from('doctor_areas').update({ coords, color, name }).eq('id', areaId).select('id'));
+  else check(await sb.from('doctor_areas').insert({ doctor_id: doctorId, coords, color, name }));
+  check(await sb.from('doctor_areas').update({ color }).eq('doctor_id', doctorId).neq('color', color).select('id')); // keep one color per doctor
 }
-const deleteArea = async doctorId => check(await sb.from('doctor_areas').delete().eq('doctor_id', doctorId));
+const deleteArea = async areaId => check(await sb.from('doctor_areas').delete().eq('id', areaId));
+const areaLabel = (a, i) => a.name || t('cov.areaN', { n: i + 1 });
 const listRequests = async () => check(await sb.from('patient_requests').select('*').order('id', { ascending: false }).limit(300));
 const callRpc = async (fn, args) => check(await sb.rpc(fn, args));
 
@@ -157,7 +160,7 @@ async function coveragePage(main) {
     for (const a of areas) {
       const d = doctors.find(x => x.id === a.doctor_id); if (!d) continue;
       const poly = L.polygon(toLatLngs(a.coords), { color: a.color, weight: 2, fillOpacity: d.active ? 0.14 : 0.04, dashArray: d.active ? null : '6 6' })
-        .bindTooltip(esc(d.full_name), { sticky: true }).addTo(areaLayer);
+        .bindTooltip(`<bdi>${esc(d.full_name)}</bdi>${a.name ? ` · <bdi>${esc(a.name)}</bdi>` : ''}`, { sticky: true }).addTo(areaLayer);
       bounds.push(poly.getBounds());
     }
     // Logged sessions (last 30 days): small dots in the doctor's area color.
@@ -175,17 +178,19 @@ async function coveragePage(main) {
 
   const drawDoctors = () => {
     $('doclist').innerHTML = doctors.filter(d => d.active).map(d => {
-      const a = areas.find(x => x.doctor_id === d.id);
-      return `<div class="doc-area"><i class="swatch" style="background:${a ? a.color : '#cfd8e2'}"></i>
-        <span><b dir="auto">${esc(d.full_name)}</b><br><span class="muted small">${t(a ? 'cov.hasArea' : 'cov.noArea')}</span></span>
-        <button type="button" class="btn ghost sm" data-draw="${d.id}">${t(a ? 'cov.editArea' : 'cov.drawArea')}</button>
-        ${a ? `<button type="button" class="icon-x" data-unarea="${d.id}" title="${esc(t('cov.removeArea'))}" aria-label="${esc(t('cov.removeArea'))}">×</button>` : ''}</div>`;
+      const mine = areas.filter(x => x.doctor_id === d.id);
+      return `<div class="doc-area"><i class="swatch" style="background:${mine[0]?.color || '#cfd8e2'}"></i>
+        <span class="doc-area-main"><b dir="auto">${esc(d.full_name)}</b><br><span class="muted small">${mine.length ? t('cov.areasCount', { n: mine.length }) : t('cov.noArea')}</span>
+          ${mine.length ? `<span class="area-chips">${mine.map((a, i) => `<span class="area-chip"><button type="button" class="link" data-edit-area="${a.id}" title="${esc(t('cov.editArea'))}">✎ <bdi>${esc(areaLabel(a, i))}</bdi></button><button type="button" class="icon-x" data-unarea="${a.id}" title="${esc(t('cov.removeArea'))}" aria-label="${esc(t('cov.removeArea'))}: ${esc(areaLabel(a, i))}">×</button></span>`).join('')}</span>` : ''}</span>
+        <button type="button" class="btn ghost sm" data-draw="${d.id}">${t(mine.length ? 'cov.addArea' : 'cov.drawArea')}</button></div>`;
     }).join('') || `<p class="muted small">${t('doctors.none')}</p>`;
-    main.querySelectorAll('[data-draw]').forEach(b => b.onclick = () => startDrawing(doctors.find(d => d.id === b.dataset.draw)));
+    main.querySelectorAll('[data-draw]').forEach(b => b.onclick = () => startDrawing(doctors.find(d => d.id === b.dataset.draw), null));
+    main.querySelectorAll('[data-edit-area]').forEach(b => b.onclick = () => { const a = areas.find(x => x.id == b.dataset.editArea); startDrawing(doctors.find(d => d.id === a.doctor_id), a.id); });
     main.querySelectorAll('[data-unarea]').forEach(b => b.onclick = async () => {
-      const d = doctors.find(x => x.id === b.dataset.unarea);
-      if (!await confirmAction({ title: t('cov.removeAreaQ', { name: d.full_name }), message: t('cov.removeAreaMsg'), confirm: t('cov.removeArea') })) return;
-      try { await deleteArea(d.id); toast(t('cov.areaRemoved')); await load(); } catch (err) { toast(err.message); }
+      const a = areas.find(x => x.id == b.dataset.unarea), d = doctors.find(x => x.id === a.doctor_id);
+      const label = areaLabel(a, areas.filter(x => x.doctor_id === a.doctor_id).indexOf(a));
+      if (!await confirmAction({ title: t('cov.removeAreaQ', { name: `${d.full_name} · ${label}` }), message: t('cov.removeAreaMsg'), confirm: t('cov.removeArea') })) return;
+      try { await deleteArea(a.id); toast(t('cov.areaRemoved')); await load(); } catch (err) { toast(err.message); }
     });
   };
 
@@ -216,11 +221,12 @@ async function coveragePage(main) {
   // Drawing an area. Two ways (dots is the default):
   //  * Dots: click to add corners, drag corners to move them, tap a small "+" between two corners to add one there.
   //  * Lasso: hold and draw the outline freehand; it then turns into dots you can fine-tune.
-  function startDrawing(d) {
+  function startDrawing(d, areaId) {
     if (drawing) drawing.stop();
-    const existing = areas.find(a => a.doctor_id === d.id);
+    const existing = areaId ? areas.find(a => a.id == areaId) : null;
+    const sibling = areas.find(a => a.doctor_id === d.id);
     const pts = existing ? toLatLngs(existing.coords).map(p => L.latLng(p)) : [];
-    let color = existing?.color || ['#e0583f', '#1a5fa8', '#5fa84a', '#487878', '#0a78b4', '#a63a26'][doctors.indexOf(d) % 6];
+    let color = existing?.color || sibling?.color || ['#e0583f', '#0f7d74', '#5fa84a', '#487878', '#0a78b4', '#a63a26'][doctors.indexOf(d) % 6];
     const layer = L.layerGroup().addTo(map);
     const bar = $('drawbar'), box = map.getContainer();
     let mode = 'dots', trail = null, line = null;
@@ -275,6 +281,7 @@ async function coveragePage(main) {
     box.addEventListener('pointerup', onUp); box.addEventListener('pointercancel', onUp);
     bar.hidden = false;
     bar.innerHTML = `<p><b dir="auto">${esc(t('cov.drawing', { name: d.full_name }))}</b> <span data-help></span> <span class="muted small" data-n></span></p>
+      <label class="area-name">${t('cov.areaName')} <input data-aname maxlength="60" dir="auto" value="${esc(existing?.name || '')}" placeholder="${esc(t('cov.areaName.ph'))}"></label>
       <div class="drawbar-actions"><div class="seg" role="group" aria-label="${esc(t('cov.drawMode'))}"><button type="button" data-mode="dots">● ${t('cov.modeDots')}</button><button type="button" data-mode="lasso">✏️ ${t('cov.modeLasso')}</button></div><label class="color-pick">${t('cov.color')} <input type="color" value="${color}"></label>
       <button type="button" class="btn ghost sm" data-undo>${t('cov.undo')}</button><button type="button" class="btn ghost sm" data-clear>${t('cov.clear')}</button>
       <span style="flex:1"></span><button type="button" class="btn ghost sm" data-stop>${t('common.cancel')}</button><button type="button" class="btn sm" data-save>${t('cov.saveArea')}</button></div>`;
@@ -285,7 +292,7 @@ async function coveragePage(main) {
     bar.querySelector('[data-stop]').onclick = () => drawing.stop();
     bar.querySelector('[data-save]').onclick = async () => {
       if (pts.length < 3) return toast(t('cov.needPoints'));
-      try { await saveArea(d.id, pts, color); drawing.stop(); toast(t('cov.areaSaved')); await load(); } catch (err) { toast(err.message); }
+      try { await saveArea(d.id, existing?.id || null, pts, color, bar.querySelector('[data-aname]').value.trim()); drawing.stop(); toast(t('cov.areaSaved')); await load(); } catch (err) { toast(err.message); }
     };
     map.on('click', onClick);
     map.getContainer().classList.add('drawing');
@@ -374,8 +381,9 @@ async function assignModal(r, doctors, areas, onDone) {
   const linked = new Set(appts.map(a => a.session_id).filter(Boolean));
   const load = id => appts.filter(a => a.doctor_id === id).length + sess.filter(s => s.doctor_id === id && !linked.has(s.id)).length;
   const rows = doctors.filter(d => d.active).map(d => {
-    const a = areas.find(x => x.doctor_id === d.id);
-    return { d, n: load(d.id), km: a && hasPin(r) ? kmBetween([r.lat, r.lng], areaMiddle(a.coords)) : null };
+    const mine = areas.filter(x => x.doctor_id === d.id);
+    const km = mine.length && hasPin(r) ? Math.min(...mine.map(a => kmBetween([r.lat, r.lng], areaMiddle(a.coords)))) : null;
+    return { d, n: load(d.id), km };
   }).sort((x, y) => (x.km ?? 1e9) - (y.km ?? 1e9));
   modal(`<h2>${t('cov.assignTitle', { name: r.patient_name })}</h2>
     <p class="muted small">${t('cov.assignHelp', { date: fmtDay(r.preferred_date, { weekday: 'long', day: 'numeric', month: 'long' }), limit: DAILY_LIMIT })}</p>
@@ -435,10 +443,10 @@ async function openPatientsPage(main) {
       <div class="map-legend"><span><i class="check">✓</i>${t('open.legendMine')}</span><span><i class="dot"></i>${t('map.legendLogged', { n: LOGGED_DAYS })}</span><span><i style="background:${REQ_COLORS.waiting}"></i>${t('open.legendOpen')}</span></div></div>
     <h2 class="section-title">${t('open.listTitle')}</h2>
     <div id="list" class="open-list">${skeleton('cards', 2)}</div>`;
-  let list = [], myArea = null, mine = [], logged = [];
+  let list = [], myAreas = [], mine = [], logged = [];
   try {
-    [list, myArea, mine, logged] = await Promise.all([callRpc('open_requests_for_me', {}),
-      sb.from('doctor_areas').select('coords, color').eq('doctor_id', state.user.id).maybeSingle().then(check), myBookedPins().catch(() => []), loggedSessionPins(state.user.id).catch(() => [])]);
+    [list, myAreas, mine, logged] = await Promise.all([callRpc('open_requests_for_me', {}),
+      sb.from('doctor_areas').select('name, coords, color').eq('doctor_id', state.user.id).order('id').then(check), myBookedPins().catch(() => []), loggedSessionPins(state.user.id).catch(() => [])]);
   }
   catch (err) { main.querySelector('#list').innerHTML = `<div class="card empty">${esc(err.message)}</div>`; return; }
   main.querySelector('#list').innerHTML = list.length ? list.map(r => `
@@ -461,9 +469,9 @@ async function openPatientsPage(main) {
   try { await loadLeaflet(); } catch { main.querySelector('.map-card').hidden = true; return; }
   const map = makeMap(main.querySelector('#map'));
   const bounds = [];
-  const myColor = myArea?.color || '#1a5fa8';
+  const myColor = myAreas[0]?.color || '#0f7d74';
   main.querySelectorAll('.map-legend i.check, .map-legend i.dot').forEach(i => i.style.setProperty('background', myColor));
-  if (myArea) bounds.push(L.polygon(toLatLngs(myArea.coords), { color: myColor, weight: 2, fillOpacity: 0.15 }).bindTooltip(t('open.myArea')).addTo(map).getBounds());
+  myAreas.forEach((a, i) => bounds.push(L.polygon(toLatLngs(a.coords), { color: myColor, weight: 2, fillOpacity: 0.15 }).bindTooltip(`${t('open.myArea')}${myAreas.length > 1 ? ' · ' + esc(areaLabel(a, i)) : ''}`).addTo(map).getBounds()));
   // Sessions I logged (last 30 days): small dots, name on tap.
   logged.forEach(x => { loggedDot(x, myColor).addTo(map); bounds.push(L.latLngBounds([[x.lat, x.lng]])); });
   // My booked patients: my color + ✓, with the name (and day) always shown.

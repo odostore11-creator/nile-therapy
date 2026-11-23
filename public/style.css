@@ -771,3 +771,13 @@ body { background: linear-gradient(180deg, #e6f4f0 0, var(--bg) 380px) no-repeat
 .bl-bar { background: linear-gradient(90deg, #0f7d74, #5cc9b5); }
 .avatar { background: linear-gradient(135deg, #f4faf8, #c9ece3); color: var(--brand-ink); }
 .brand-mark { background: #fff; box-shadow: 0 4px 14px rgba(0, 0, 0, .15); }
+
+/* Several areas per doctor */
+.doc-area-main { flex: 1; min-width: 0; }
+.area-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.area-chip { display: inline-flex; align-items: center; gap: 2px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 2px 4px 2px 10px; font-size: 13px; }
+.area-chip .link { font-size: 13px; text-decoration: none; }
+.area-chip .icon-x { width: 22px; height: 22px; font-size: 15px; }
+.area-name { display: flex; gap: 8px; align-items: center; font-size: 13px; margin: 0 0 8px; } .area-name input { max-width: 220px; padding: 6px 10px; }
+.doc-area { grid-template-columns: 14px 1fr auto; align-items: start; } .doc-area .swatch { margin-top: 5px; }
+.area-chip .link { white-space: nowrap; }

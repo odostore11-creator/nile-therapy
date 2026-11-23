@@ -347,6 +347,11 @@ const STRINGS = {
     'req.svc.orthopedic': "Orthopedic sessions",
     'req.svc.neuro': "Neuro sessions",
     'req.svc.other': "Other service",
+    'cov.addArea': "+ Add area",
+    'cov.areaN': "Area {n}",
+    'cov.areasCount': "{n} area(s)",
+    'cov.areaName': "Area name (optional)",
+    'cov.areaName.ph': "e.g. Nasr City",
   },
 
   ar: {
@@ -692,6 +697,11 @@ const STRINGS = {
     'req.svc.orthopedic': "جلسات العظام",
     'req.svc.neuro': "جلسات المخ والأعصاب",
     'req.svc.other': "خدمة أخرى",
+    'cov.addArea': "+ إضافة منطقة",
+    'cov.areaN': "منطقة {n}",
+    'cov.areasCount': "عدد المناطق: {n}",
+    'cov.areaName': "اسم المنطقة (اختياري)",
+    'cov.areaName.ph': "مثال: مدينة نصر",
   },
 };
 
