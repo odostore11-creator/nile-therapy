@@ -16,7 +16,7 @@ async function boot() {
 
 function render() {
   document.querySelectorAll('.modal-bg').forEach(m => m.remove());
-  if (!state.user) { stopAlerts(); return renderLogin(); }
+  if (!state.user) { stopAlerts(); stopLive(); return renderLogin(); }
   const [page, arg] = route();
   if (state.user.role === 'tech') { stopAlerts(); return techShell(); } // technical team: its own small page
   if (state.user.role === 'doctor') {
@@ -146,6 +146,8 @@ function shell(active, renderPage) {
   document.getElementById('pw').onclick = passwordModal;
   const pageEl = document.getElementById('main');
   pageEl.classList.add('page-in');
+  setLivePage(active, renderPage, pageEl); // live updates redraw this page when something changes
+  startLive();
   renderPage(pageEl);
   flushOutbox(); // anything saved while offline goes out now
 }

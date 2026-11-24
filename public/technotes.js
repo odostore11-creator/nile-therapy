@@ -54,6 +54,8 @@ function techNotesModal() {
         });
       } catch (x) { listEl.innerHTML = `<p class="error">${esc(x.message)}</p>`; }
     };
+    const onLive = e => { if (!listEl.isConnected) return document.removeEventListener('nt-live', onLive); if (e.detail.table === 'tech_notes') load(); };
+    document.addEventListener('nt-live', onLive); // new replies show up while the box is open
     const form = m.querySelector('#tn-form');
     onSubmit(form, async () => {
       await sendTechNote(form.body.value);
@@ -78,7 +80,10 @@ function techShell() {
     if (!await confirmAction({ title: t('confirm.logout'), confirm: t('me.logout') })) return;
     state.user = null; location.hash = ''; await sb.auth.signOut({ scope: 'local' }); render();
   };
-  techNotesPage(document.getElementById('main'));
+  const main = document.getElementById('main');
+  setLivePage('tech', techNotesPage, main);
+  startLive();
+  techNotesPage(main);
 }
 
 async function techNotesPage(main) {

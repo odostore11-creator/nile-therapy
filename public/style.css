@@ -945,3 +945,12 @@ html[dir="rtl"] td[dir="auto"], html[dir="rtl"] td [dir="auto"] { text-align: ri
 .tn-edit textarea { width: 100%; resize: vertical; }
 .tn-card .actions { display: flex; justify-content: flex-end; }
 @media (max-width: 600px) { .tn-edit { grid-template-columns: 1fr; } .tech-bar { padding: 10px 14px; } }
+
+/* Live updates: a small bar when the page couldn't be redrawn (someone is typing, a dialog is open, a map page). */
+.live-bar { position: fixed; z-index: 60; left: 50%; bottom: 22px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; border-radius: 999px; background: var(--brand-ink, #0b4f5c); color: #fff; box-shadow: 0 10px 30px rgba(0, 0, 0, .22); font-size: 14px; animation: live-in .25s ease-out; max-width: calc(100vw - 32px); }
+[dir="rtl"] .live-bar { padding: 8px 16px 8px 8px; }
+.live-bar button { border: 0; border-radius: 999px; padding: 7px 14px; background: #fff; color: var(--brand-ink, #0b4f5c); font: inherit; font-weight: 700; cursor: pointer; }
+.live-bar button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+@keyframes live-in { from { opacity: 0; transform: translate(-50%, 10px); } }
+@media (max-width: 980px) { .live-bar { bottom: 84px; } }
+@media (prefers-reduced-motion: reduce) { .live-bar { animation: none; } }
