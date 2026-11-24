@@ -912,3 +912,36 @@ html[dir="rtl"] td[dir="auto"], html[dir="rtl"] td [dir="auto"] { text-align: ri
   .tech-team, .me { flex: none; }
   .tech-team[open] { max-height: 46vh; overflow-y: auto; scrollbar-width: thin; }
 }
+
+/* Notes to the technical team (founders' button in the card + the modal). */
+.tech-note-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: calc(100% - 24px); margin: 4px 12px 12px; padding: 9px 12px; border-radius: 10px; border: 1px dashed rgba(255, 255, 255, .35); background: rgba(255, 255, 255, .08); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.tech-note-btn svg { width: 16px; height: 16px; }
+.tech-note-btn:hover { background: rgba(255, 255, 255, .14); }
+.tech-note-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.tn-form textarea { width: 100%; resize: vertical; min-height: 96px; }
+.tn-list-h { margin: 18px 0 8px; font-size: 15px; }
+.tn-list { display: grid; gap: 10px; max-height: 42vh; overflow-y: auto; }
+.tn-item { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; background: var(--surface); }
+.tn-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; }
+.tn-meta .tn-withdraw { margin-inline-start: auto; font-size: 12.5px; }
+.tn-body { margin: 6px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tn-reply { margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: var(--surface-2); font-size: 13.5px; white-space: pre-wrap; }
+.tn-st { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; }
+.tn-new { background: #fdecd2; color: #8a4b00; }
+.tn-in_progress { background: #dbeefe; color: #134a7c; }
+.tn-done { background: #dcf3e6; color: #1d6b3f; }
+/* The technical team's own page. */
+.tech-shell { min-height: 100vh; background: var(--bg); }
+.tech-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 20px; background: var(--grad-side, #0b4f5c); color: #fff; }
+.tech-bar .brand { display: flex; align-items: center; gap: 10px; }
+.tech-bar .brand-mark { background: #fff; border-radius: 10px; padding: 3px; display: grid; }
+.tech-bar .brand b { display: block; font-size: 15px; } .tech-bar .brand small { display: block; font-size: 12px; opacity: .8; }
+.tech-bar .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.tech-bar .btn.ghost, .tech-bar .lang-btn { background: rgba(255, 255, 255, .12); color: #fff; border-color: rgba(255, 255, 255, .25); }
+.tech-main { max-width: 860px; margin: 0 auto; padding: 24px 16px 60px; }
+.tn-card { display: grid; gap: 8px; margin-bottom: 14px; padding: 18px; }
+.tn-edit { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 12px; align-items: start; }
+.tn-edit label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.tn-edit textarea { width: 100%; resize: vertical; }
+.tn-card .actions { display: flex; justify-content: flex-end; }
+@media (max-width: 600px) { .tn-edit { grid-template-columns: 1fr; } .tech-bar { padding: 10px 14px; } }

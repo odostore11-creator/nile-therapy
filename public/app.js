@@ -18,6 +18,7 @@ function render() {
   document.querySelectorAll('.modal-bg').forEach(m => m.remove());
   if (!state.user) { stopAlerts(); return renderLogin(); }
   const [page, arg] = route();
+  if (state.user.role === 'tech') { stopAlerts(); return techShell(); } // technical team: its own small page
   if (state.user.role === 'doctor') {
     if (page === 'schedule') return shell('schedule', schedulePage);
     if (page === 'requests') return shell('requests', openPatientsPage);
@@ -78,12 +79,12 @@ function renderLogin() {
         : /rate limit|too many/i.test(error.message) ? t('err.tooMany') : friendly(error));
       const me = await loadMe();
       if (!me) throw new Error(t('err.accountOff'));
-      if (me.role !== state.loginRole) { // picked the wrong tab: don't let them in
+      if (me.role !== 'tech' && me.role !== state.loginRole) { // picked the wrong tab (the tech account may use either)
         await sb.auth.signOut({ scope: 'local' });
         throw new Error(t(me.role === 'admin' ? 'login.wrongTabFounder' : 'login.wrongTabDoctor'));
       }
       state.user = me;
-      location.hash = me.role === 'admin' ? '#/overview' : '#/log';
+      location.hash = me.role === 'admin' ? '#/overview' : me.role === 'tech' ? '' : '#/log';
       render();
     } catch (err) { document.getElementById('err').textContent = err.message; btn.disabled = false; }
   };
@@ -133,6 +134,7 @@ function shell(active, renderPage) {
   $app.querySelectorAll('.nav-group').forEach(g => g.addEventListener('toggle', () => { try { localStorage.setItem('nt_navg_' + g.dataset.g, g.open ? '1' : '0'); } catch { /* fine */ } }));
   menuBtn.onclick = () => { const open = side.classList.toggle('open'); menuBtn.setAttribute('aria-expanded', open); menuBtn.textContent = open ? '✕' : '☰'; };
   showInstallTip();
+  document.getElementById('tech-note')?.addEventListener('click', techNotesModal);
   $app.querySelector('.tech-team')?.addEventListener('toggle', e => { try { localStorage.setItem('nt_tech_open', e.target.open ? '1' : '0'); } catch { /* fine */ } });
   startAlerts(); // keeps checking every minute; redraws the alert/badge right away on each page
   wireInstall();
@@ -173,6 +175,7 @@ function techTeamHtml() {
           <a class="tech-btn call" href="tel:+${num}" aria-label="${esc(t('tech.call', { name }))}" title="${esc(t('tech.call', { name }))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg></a>
         </span></div>`;
     }).join('')}
+    ${isFounder() ? `<button type="button" class="tech-note-btn" id="tech-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>${t('notes.open')}</button>` : ''}
   </details>`;
 }
 
