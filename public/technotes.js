@@ -66,12 +66,14 @@ function techNotesModal() {
 }
 
 // ---------- technical team: its own small page ----------
+const techTab = () => (route()[0] === 'partners' ? 'partners' : '');
 function techShell() {
   $app.innerHTML = `<div class="tech-shell">
     <header class="tech-bar">
       <div class="brand"><span class="brand-mark"><img src="logo-mark.png" alt="" width="34" height="34"></span><span><b>Nile Therapy</b><small>${t('notes.techArea')}</small></span></div>
       <div class="row">${langButton()}<button type="button" class="btn ghost" id="pw">${t('me.password')}</button><button type="button" class="btn ghost" id="out">${t('me.logout')}</button></div>
     </header>
+    <nav class="p-tabs" aria-label="${esc(t('nav.menu'))}">${[['', t('notes.techTitle')], ['partners', t('nav.partners')]].map(([k, l]) => `<a href="#/${k}" class="${k === techTab() ? 'on' : ''}" ${k === techTab() ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav>
     <main class="tech-main" id="main"></main>
   </div>`;
   wireLangButtons();
@@ -81,9 +83,10 @@ function techShell() {
     state.user = null; location.hash = ''; await sb.auth.signOut({ scope: 'local' }); render();
   };
   const main = document.getElementById('main');
-  setLivePage('tech', techNotesPage, main);
+  const draw = techTab() === 'partners' ? partnersPage : techNotesPage;
+  setLivePage('tech-' + (techTab() || 'notes'), draw, main);
   startLive();
-  techNotesPage(main);
+  draw(main);
 }
 
 async function techNotesPage(main) {

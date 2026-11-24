@@ -19,6 +19,7 @@ function render() {
   if (!state.user) { stopAlerts(); stopLive(); return renderLogin(); }
   const [page, arg] = route();
   if (state.user.role === 'tech') { stopAlerts(); return techShell(); } // technical team: its own small page
+  if (state.user.role === 'partner') { stopAlerts(); return partnerShell(); } // referring doctors/hospitals
   if (state.user.role === 'doctor') {
     if (page === 'schedule') return shell('schedule', schedulePage);
     if (page === 'requests') return shell('requests', openPatientsPage);
@@ -33,13 +34,15 @@ function render() {
   if (page === 'report') return shell('report', el => reportPage(el, arg));
   if (page === 'history') return shell('history', historyPage);
   if (page === 'calendar') return shell('calendar', calendarPage);
+  if (page === 'partners') return shell('partners', partnersPage);
+  if (page === 'referrals') return shell('referrals', referralsPage);
   if (page === 'chat') return shell('chat', chatPage);
   return shell('overview', overviewPage);
 }
 
 // ---------- login ----------
 function renderLogin() {
-  const admin = state.loginRole === 'admin';
+  const admin = state.loginRole === 'admin', partner = state.loginRole === 'partner';
   $app.innerHTML = `
   <div class="login">
     <section class="login-art">
@@ -58,11 +61,12 @@ function renderLogin() {
         <p class="muted">${t('login.help')}</p>
         <div class="role-switch" role="tablist">
           <button type="button" role="tab" aria-selected="${admin}" class="${admin ? 'on' : ''}" data-role="admin">${t('role.founder')}</button>
-          <button type="button" role="tab" aria-selected="${!admin}" class="${!admin ? 'on' : ''}" data-role="doctor">${t('role.doctor')}</button>
+          <button type="button" role="tab" aria-selected="${state.loginRole === 'doctor'}" class="${state.loginRole === 'doctor' ? 'on' : ''}" data-role="doctor">${t('role.doctor')}</button>
+          <button type="button" role="tab" aria-selected="${partner}" class="${partner ? 'on' : ''}" data-role="partner">${t('role.partner')}</button>
         </div>
-        <div class="field"><label for="u">${t('login.username')}</label><input id="u" name="username" dir="ltr" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus placeholder="${esc(t(admin ? 'login.ph.admin' : 'login.ph.doctor'))}"></div>
+        <div class="field"><label for="u">${t('login.username')}</label><input id="u" name="username" dir="ltr" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus placeholder="${esc(t(admin ? 'login.ph.admin' : partner ? 'login.ph.partner' : 'login.ph.doctor'))}"></div>
         <div class="field"><label for="p">${t('login.password')}</label><input id="p" name="password" dir="ltr" type="password" autocomplete="current-password" required></div>
-        <button class="btn block" type="submit">${t(admin ? 'login.go.admin' : 'login.go.doctor')}</button>
+        <button class="btn block" type="submit">${t(admin ? 'login.go.admin' : partner ? 'login.go.partner' : 'login.go.doctor')}</button>
         <div class="error" id="err" role="alert"></div>
       </form>
     </section>
@@ -81,10 +85,10 @@ function renderLogin() {
       if (!me) throw new Error(t('err.accountOff'));
       if (me.role !== 'tech' && me.role !== state.loginRole) { // picked the wrong tab (the tech account may use either)
         await sb.auth.signOut({ scope: 'local' });
-        throw new Error(t(me.role === 'admin' ? 'login.wrongTabFounder' : 'login.wrongTabDoctor'));
+        throw new Error(t(me.role === 'admin' ? 'login.wrongTabFounder' : me.role === 'partner' ? 'login.wrongTabPartner' : 'login.wrongTabDoctor'));
       }
       state.user = me;
-      location.hash = me.role === 'admin' ? '#/overview' : me.role === 'tech' ? '' : '#/log';
+      location.hash = me.role === 'admin' ? '#/overview' : me.role === 'tech' ? '' : me.role === 'partner' ? '#/send' : '#/log';
       render();
     } catch (err) { document.getElementById('err').textContent = err.message; btn.disabled = false; }
   };
@@ -99,7 +103,7 @@ function shell(active, renderPage) {
   const groups = u.role === 'admin'
     ? [{ items: [I('overview', t('nav.overview'), icons.overview)] },
        { key: 'work', label: t('navg.work'), icon: icons.sessions, items: [I('sessions', t('nav.sessions'), icons.sessions), I('schedule', t('nav.schedule'), icons.schedule), I('calendar', t('nav.calendar'), icons.calendar)] },
-       { key: 'team', label: t('navg.team'), icon: icons.doctors, items: [I('doctors', t('nav.doctors'), icons.doctors), I('patients', t('nav.patients'), icons.patients), I('coverage', t('nav.coverage'), icons.map)] },
+       { key: 'team', label: t('navg.team'), icon: icons.doctors, items: [I('doctors', t('nav.doctors'), icons.doctors), I('patients', t('nav.patients'), icons.patients), I('referrals', t('nav.referrals'), icons.inbox), I('partners', t('nav.partners'), icons.partners), I('coverage', t('nav.coverage'), icons.map)] },
        { key: 'records', label: t('navg.records'), icon: icons.report, items: [I('report', t('nav.report'), icons.report), I('history', t('nav.history'), icons.history)] },
        { items: [I('chat', t('nav.chat'), icons.chat)] }]
     : [{ items: [I('log', t('nav.today'), icons.today), I('schedule', t('nav.mySchedule'), icons.schedule), I('requests', t('nav.openPatients'), icons.map)] }];
@@ -137,6 +141,7 @@ function shell(active, renderPage) {
   document.getElementById('tech-note')?.addEventListener('click', techNotesModal);
   $app.querySelector('.tech-team')?.addEventListener('toggle', e => { try { localStorage.setItem('nt_tech_open', e.target.open ? '1' : '0'); } catch { /* fine */ } });
   startAlerts(); // keeps checking every minute; redraws the alert/badge right away on each page
+  refreshReferralBadge();
   wireInstall();
   wireLangButtons();
   document.getElementById('out').onclick = async () => {

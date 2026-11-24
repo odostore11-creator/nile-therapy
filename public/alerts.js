@@ -23,11 +23,7 @@ function drawAlerts() {
   const navKey = doctor ? 'requests' : 'coverage';
   document.querySelectorAll(`.nav[href="#/${navKey}"] .nav-badge, .tab[href="#/${navKey}"] .nav-badge`).forEach(b => b.remove());
   if (n) document.querySelectorAll(`.nav[href="#/${navKey}"], .tab[href="#/${navKey}"]`).forEach(a => a.insertAdjacentHTML('beforeend', `<span class="nav-badge ${doctor ? '' : 'red'}">${n}</span>`));
-  document.querySelectorAll('.nav-group').forEach(g => {
-    g.querySelector('.nav-sum .nav-badge')?.remove();
-    const b = g.querySelector('.nav-sub .nav-badge');
-    if (b) g.querySelector('.nav-sum').insertAdjacentHTML('beforeend', `<span class="${b.className} sum-badge">${b.textContent}</span>`);
-  });
+  syncGroupBadges();
   if (!slot) return;
   const onPage = location.hash.startsWith(`#/${navKey}`);
   if (!n || onPage) { slot.innerHTML = ''; return; }
@@ -66,3 +62,13 @@ function stopAlerts() {
   Object.assign(alertState, { timer: 0, items: [], lastCount: null, forUser: null });
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && alertState.timer) refreshAlerts(); });
+
+// A closed menu group shows the total of the counts inside it (red if any of them is red).
+function syncGroupBadges() {
+  document.querySelectorAll('.nav-group').forEach(g => {
+    g.querySelector('.nav-sum .nav-badge')?.remove();
+    const bs = [...g.querySelectorAll('.nav-sub .nav-badge')];
+    const n = bs.reduce((a, b) => a + (parseInt(b.textContent, 10) || 0), 0);
+    if (n) g.querySelector('.nav-sum').insertAdjacentHTML('beforeend', `<span class="nav-badge ${bs.some(b => b.classList.contains('red')) ? 'red' : ''} sum-badge">${n}</span>`);
+  });
+}

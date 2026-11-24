@@ -20,9 +20,9 @@ function doctorFormHtml(d = {}) {
     </div>
     <div class="field"><label>${t('doc.about')}</label><textarea name="bio" dir="auto">${esc(d.bio)}</textarea></div>`;
 }
-function showCredentials(title, { username, password }) {
+function showCredentials(title, { username, password }, intro = t('creds.intro')) {
   modal(`<h2>${esc(title)}</h2>
-    <p>${t('creds.intro')}</p>
+    <p>${esc(intro)}</p>
     <div class="secret" dir="ltr">${esc(t('creds.username'))}: ${esc(username)}<br>${esc(t('creds.password'))}: ${esc(password)}</div>
     <div class="actions"><button class="btn ghost" id="copy">${t('common.copy')}</button><button class="btn" data-close>${t('common.done')}</button></div>`, m => {
     m.querySelector('#copy').onclick = () => { navigator.clipboard?.writeText(`${t('creds.portal')}\n${t('creds.username')}: ${username}\n${t('creds.password')}: ${password}`); toast(t('common.copied')); };

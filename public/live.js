@@ -4,7 +4,7 @@
 // if a dialog is open or a field on the page was touched, a small "New updates · Show" bar appears instead.
 // Realtime applies RLS, so everyone only hears about rows they can already read (tables: migration 20261124020000).
 
-const LIVE_TABLES = ['sessions', 'appointments', 'patients', 'patient_requests', 'doctor_areas', 'founder_events', 'session_fees', 'tech_notes', 'profiles', 'change_log'];
+const LIVE_TABLES = ['sessions', 'appointments', 'patients', 'patient_requests', 'doctor_areas', 'founder_events', 'session_fees', 'tech_notes', 'profiles', 'change_log', 'referrals', 'partner_profiles'];
 // Pages with a map editor or the AI room are never redrawn under the user; they get the bar.
 const LIVE_BAR_ONLY = new Set(['coverage', 'requests', 'chat']);
 const live = { ch: null, timer: null, pending: false, page: null, dirty: false };
@@ -31,6 +31,11 @@ function onLiveChange(p) {
 }
 
 function liveToast(p) {
+  if (p.table === 'referrals') {
+    if (isFounder() && p.eventType === 'INSERT') toast(t('live.refNew'));
+    else if (isPartner() && p.eventType === 'UPDATE') toast(t('live.refUpdated'));
+    return;
+  }
   if (p.table !== 'tech_notes') return;
   if (isTech() && p.eventType === 'INSERT') toast(t('live.noteNew'));
   else if (isFounder() && p.eventType === 'UPDATE' && p.new?.author_id === state.user.id) toast(t('live.noteUpdated'));
@@ -40,7 +45,8 @@ const userBusy = () => !!document.querySelector('.modal-bg') || live.dirty
   || (document.activeElement?.closest?.('#main') && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName));
 
 function liveRefresh() {
-  if (typeof refreshAlerts === 'function' && !isTech()) refreshAlerts();
+  if (typeof refreshAlerts === 'function' && !isTech() && !isPartner()) refreshAlerts();
+  refreshReferralBadge();
   const pg = live.page;
   if (!pg || !pg.el.isConnected) return;
   if (document.hidden) { live.pending = true; return; }
