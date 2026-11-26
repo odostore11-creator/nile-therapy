@@ -1,7 +1,8 @@
 // Public booking form on niletherapy.org -> a patient request in the portal (source 'website').
 // No login. Protection: strict validation and length limits, a honeypot field, a per-IP rate limit
-// (only a salted hash of the IP is stored), and the same phone can't book twice within 10 minutes.
-// With a map pin, the request is auto-assigned like any other; without one it goes to the founders.
+// (only a salted hash of the IP is stored), the same phone can't book twice within 10 minutes or more than 3 times a day,
+// and a site-wide hourly ceiling. With a map pin, the request is auto-assigned like any other; without one, or during an
+// unusual burst of bookings, it goes to the founders.
 import { admin, HttpError, serve, str } from '../_shared/common.ts';
 
 const GOVERNORATES = ['Cairo', 'Giza', 'Alexandria', 'Qalyubia', 'Sharqia', 'Dakahlia', 'Gharbia', 'Monufia', 'Beheira', 'Kafr El Sheikh', 'Damietta',
@@ -10,6 +11,9 @@ const GOVERNORATES = ['Cairo', 'Giza', 'Alexandria', 'Qalyubia', 'Sharqia', 'Dak
 const SERVICES: Record<string, number> = { '': 45, 'home-assessment': 120, orthopedic: 60, neuro: 120, other: 45 };
 const SLOTS = ['any', 'morning', 'afternoon', 'evening'];
 const PER_IP_PER_HOUR = 5;
+const PHONE_PER_DAY = 3;
+const BURST_PER_HOUR = 15;  // more website bookings than this in an hour: stop auto-booking visits, send them to the founders
+const MAX_PER_HOUR = 60;    // hard ceiling for the whole site
 
 const MSG = {
   en: { name: 'Enter your full name.', phone: 'Enter a valid Egyptian mobile number.', gov: 'Choose your governorate.', addr: 'Enter your address or area.',
@@ -71,8 +75,9 @@ serve(async (req, body) => {
   }
   const hasPin = Number.isFinite(lat) && Number.isFinite(lng);
 
-  // Rate limits.
-  const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown';
+  // Rate limits. CF-Connecting-IP is set by Cloudflare in front of Supabase and can't be faked by the caller
+  // (Cloudflare rejects requests that try); the first X-Forwarded-For entry is the fallback (Cloudflare rewrites it too).
+  const ip = req.headers.get('cf-connecting-ip')?.trim() || (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown';
   const ipHash = await sha256('nile-booking|' + ip);
   const hourAgo = new Date(Date.now() - 3600e3).toISOString();
   const { count: recent } = await admin.from('patient_requests').select('id', { count: 'exact', head: true }).eq('ip_hash', ipHash).gte('created_at', hourAgo);
@@ -80,10 +85,21 @@ serve(async (req, body) => {
   const tenAgo = new Date(Date.now() - 600e3).toISOString();
   const { count: dup } = await admin.from('patient_requests').select('id', { count: 'exact', head: true }).eq('phone', phone).eq('source', 'website').gte('created_at', tenAgo);
   if ((dup ?? 0) > 0) return { ok: true }; // already received (double submit)
+  // Same phone at most 3 times a day (a real patient books once; a script reuses numbers).
+  const dayAgo = new Date(Date.now() - 864e5).toISOString();
+  const { count: sameDay } = await admin.from('patient_requests').select('id', { count: 'exact', head: true }).eq('phone', phone).eq('source', 'website').gte('created_at', dayAgo);
+  if ((sameDay ?? 0) >= PHONE_PER_DAY) throw new HttpError(429, m.many);
+  // Site-wide: far more bookings in an hour than the business ever gets means a flood. Past BURST_PER_HOUR they still come in
+  // but go to the founders (no auto-booked doctor visits); past MAX_PER_HOUR they are refused.
+  const { count: siteHour } = await admin.from('patient_requests').select('id', { count: 'exact', head: true }).eq('source', 'website').gte('created_at', hourAgo);
+  if ((siteHour ?? 0) >= MAX_PER_HOUR) throw new HttpError(429, m.many);
+  const burst = (siteHour ?? 0) >= BURST_PER_HOUR;
+  if (burst) console.warn(`booking burst: ${siteHour} website bookings in the last hour; routing to founders`);
 
-  const notes = [complaint && `Complaint: ${complaint}`, link && `Map: ${link}`, 'Booked on the website'].filter(Boolean).join(' · ').slice(0, 2000);
+  const notes = [complaint && `Complaint: ${complaint}`, link && `Map: ${link}`, burst ? 'Arrived during an unusual burst of website bookings: check it is real' : '', 'Booked on the website'].filter(Boolean).join(' · ').slice(0, 2000);
+  const autoRoute = hasPin && !burst; // without a pin the request goes to the founders instead of being auto-assigned
   const { data, error } = await admin.rpc('create_patient_request', { p: {
-    patient_name: name, phone, address, governorate, lat: hasPin ? lat : '', lng: hasPin ? lng : '', preferred_date: date < today ? today : date,
+    patient_name: name, phone, address, governorate, lat: autoRoute ? lat : '', lng: autoRoute ? lng : '', preferred_date: date < today ? today : date,
     preferred_slot: slot, service, session_type: 'Home visit', duration_min: SERVICES[service], condition: complaint.slice(0, 500), notes,
     source: 'website', lang, ip_hash: ipHash,
   } });

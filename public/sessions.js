@@ -119,11 +119,12 @@ function wireMapLink(root) {
 }
 function editSessionModal(s, onDone) {
   modal(`<h2>${t('edit.title')}</h2><form>${sessionFormHtml(s, { fees: true })}<div class="error" role="alert"></div>
-    <div class="actions"><button type="button" class="btn danger" data-del>${t('common.delete')}</button><span style="flex:1"></span><button type="button" class="btn ghost" data-close>${t('common.cancel')}</button><button class="btn">${t('common.save')}</button></div></form>`,
+    <div class="actions">${isFounder() ? `<button type="button" class="btn danger" data-del>${t('common.delete')}</button>` : `<span class="muted small">${t('edit.askFounder')}</span>`}<span style="flex:1"></span><button type="button" class="btn ghost" data-close>${t('common.cancel')}</button><button class="btn">${t('common.save')}</button></div></form>`,
   (m, close) => {
     const f = m.querySelector('form'); wireTypePick(f);
     onSubmit(f, async () => { await updateSession(s.id, formData(f)); close(); toast(t('edit.updated')); onDone(); });
-    m.querySelector('[data-del]').onclick = async () => {
+    const del = m.querySelector('[data-del]');
+    if (del) del.onclick = async () => { // only founders delete sessions (the price and commission go with them)
       if (!await confirmAction({ title: t('confirm.deleteSession'), message: t('confirm.deleteSessionMsg'), confirm: t('confirm.deleteSessionBtn') })) return;
       try { await deleteSession(s.id); close(); toast(t('edit.deleted')); onDone(); }
       catch (err) { f.querySelector('.error').textContent = err.message; }
