@@ -4,7 +4,7 @@
 // if a dialog is open or a field on the page was touched, a small "New updates · Show" bar appears instead.
 // Realtime applies RLS, so everyone only hears about rows they can already read (tables: migration 20261124020000).
 
-const LIVE_TABLES = ['sessions', 'appointments', 'patients', 'patient_requests', 'doctor_areas', 'founder_events', 'session_fees', 'tech_notes', 'profiles', 'change_log', 'referrals', 'partner_profiles'];
+const LIVE_TABLES = ['sessions', 'appointments', 'patients', 'patient_requests', 'doctor_areas', 'founder_events', 'session_fees', 'tech_notes', 'profiles', 'change_log', 'referrals', 'partner_profiles', 'client_errors', 'fee_defaults', 'tech_commission', 'tech_payouts'];
 // Pages with a map editor or the AI room are never redrawn under the user; they get the bar.
 const LIVE_BAR_ONLY = new Set(['coverage', 'requests', 'chat']);
 const live = { ch: null, timer: null, pending: false, page: null, dirty: false };
@@ -47,6 +47,7 @@ const userBusy = () => !!document.querySelector('.modal-bg') || live.dirty
 function liveRefresh() {
   if (typeof refreshAlerts === 'function' && !isTech() && !isPartner()) refreshAlerts();
   refreshReferralBadge();
+  refreshInboxBadge();
   const pg = live.page;
   if (!pg || !pg.el.isConnected) return;
   if (document.hidden) { live.pending = true; return; }

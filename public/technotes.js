@@ -66,14 +66,14 @@ function techNotesModal() {
 }
 
 // ---------- technical team: its own small page ----------
-const techTab = () => (route()[0] === 'partners' ? 'partners' : '');
+const techTab = () => (['partners', 'errors', 'usage', 'commission'].includes(route()[0]) ? route()[0] : '');
 function techShell() {
   $app.innerHTML = `<div class="tech-shell">
     <header class="tech-bar">
       <div class="brand"><span class="brand-mark"><img src="logo-mark.png" alt="" width="34" height="34"></span><span><b>Nile Therapy</b><small>${t('notes.techArea')}</small></span></div>
       <div class="row">${langButton()}<button type="button" class="btn ghost" id="pw">${t('me.password')}</button><button type="button" class="btn ghost" id="out">${t('me.logout')}</button></div>
     </header>
-    <nav class="p-tabs" aria-label="${esc(t('nav.menu'))}">${[['', t('notes.techTitle')], ['partners', t('nav.partners')]].map(([k, l]) => `<a href="#/${k}" class="${k === techTab() ? 'on' : ''}" ${k === techTab() ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav>
+    <nav class="p-tabs" aria-label="${esc(t('nav.menu'))}">${[['', t('notes.techTitle')], ['partners', t('nav.partners')], ['errors', t('tabs.errors')], ['usage', t('tabs.usage')], ['commission', t('tabs.commission')]].map(([k, l]) => `<a href="#/${k}" class="${k === techTab() ? 'on' : ''}" ${k === techTab() ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav>
     <main class="tech-main" id="main"></main>
   </div>`;
   wireLangButtons();
@@ -83,8 +83,9 @@ function techShell() {
     state.user = null; location.hash = ''; await sb.auth.signOut({ scope: 'local' }); render();
   };
   const main = document.getElementById('main');
-  const draw = techTab() === 'partners' ? partnersPage : techNotesPage;
+  const draw = { partners: partnersPage, errors: techErrorsPage, usage: techUsagePage, commission: techCommissionPage }[techTab()] || techNotesPage;
   setLivePage('tech-' + (techTab() || 'notes'), draw, main);
+  trackVisit('tech-' + (techTab() || 'notes'));
   startLive();
   draw(main);
 }

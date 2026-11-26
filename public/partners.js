@@ -90,6 +90,7 @@ function partnerShell() {
   const main = document.getElementById('main');
   const draw = { send: partnerSendPage, mine: partnerReportPage, profile: partnerProfilePage }[tab];
   setLivePage('p-' + tab, draw, main);
+  trackVisit('p-' + tab);
   startLive();
   draw(main);
 }

@@ -35,6 +35,9 @@ function render() {
   if (page === 'history') return shell('history', historyPage);
   if (page === 'calendar') return shell('calendar', calendarPage);
   if (page === 'partners') return shell('partners', partnersPage);
+  if (page === 'inbox') return shell('inbox', inboxPage);
+  if (page === 'activity') return shell('activity', activityPage);
+  if (page === 'money') return shell('money', moneyPage);
   if (page === 'referrals') return shell('referrals', referralsPage);
   if (page === 'chat') return shell('chat', chatPage);
   return shell('overview', overviewPage);
@@ -101,10 +104,10 @@ function shell(active, renderPage) {
   // always open; other groups remember open/closed on this device). Doctors keep a short flat list.
   const I = (k, label, ic) => [k, label, ic];
   const groups = u.role === 'admin'
-    ? [{ items: [I('overview', t('nav.overview'), icons.overview)] },
+    ? [{ items: [I('overview', t('nav.overview'), icons.overview), I('inbox', t('nav.inbox'), icons.inbox)] },
        { key: 'work', label: t('navg.work'), icon: icons.sessions, items: [I('sessions', t('nav.sessions'), icons.sessions), I('schedule', t('nav.schedule'), icons.schedule), I('calendar', t('nav.calendar'), icons.calendar)] },
-       { key: 'team', label: t('navg.team'), icon: icons.doctors, items: [I('doctors', t('nav.doctors'), icons.doctors), I('patients', t('nav.patients'), icons.patients), I('referrals', t('nav.referrals'), icons.inbox), I('partners', t('nav.partners'), icons.partners), I('coverage', t('nav.coverage'), icons.map)] },
-       { key: 'records', label: t('navg.records'), icon: icons.report, items: [I('report', t('nav.report'), icons.report), I('history', t('nav.history'), icons.history)] },
+       { key: 'team', label: t('navg.team'), icon: icons.doctors, items: [I('doctors', t('nav.doctors'), icons.doctors), I('activity', t('nav.activity'), icons.activity), I('patients', t('nav.patients'), icons.patients), I('referrals', t('nav.referrals'), icons.inbox), I('partners', t('nav.partners'), icons.partners), I('coverage', t('nav.coverage'), icons.map)] },
+       { key: 'records', label: t('navg.records'), icon: icons.report, items: [I('report', t('nav.report'), icons.report), I('money', t('nav.money'), icons.money), I('history', t('nav.history'), icons.history)] },
        { items: [I('chat', t('nav.chat'), icons.chat)] }]
     : [{ items: [I('log', t('nav.today'), icons.today), I('schedule', t('nav.mySchedule'), icons.schedule), I('requests', t('nav.openPatients'), icons.map)] }];
   const nav = groups.flatMap(g => g.items);
@@ -142,6 +145,8 @@ function shell(active, renderPage) {
   $app.querySelector('.tech-team')?.addEventListener('toggle', e => { try { localStorage.setItem('nt_tech_open', e.target.open ? '1' : '0'); } catch { /* fine */ } });
   startAlerts(); // keeps checking every minute; redraws the alert/badge right away on each page
   refreshReferralBadge();
+  refreshInboxBadge();
+  trackVisit(active);
   wireInstall();
   wireLangButtons();
   document.getElementById('out').onclick = async () => {
