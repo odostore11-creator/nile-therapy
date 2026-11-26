@@ -189,48 +189,94 @@ const GOV_AR: Record<string, string> = { Cairo: 'القاهرة', Giza: 'الج�
   Dakahlia: 'الدقهلية', Gharbia: 'الغربية', Monufia: 'المنوفية', Beheira: 'البحيرة', 'Kafr El Sheikh': 'كفر الشيخ', Damietta: 'دمياط', 'Port Said': 'بورسعيد',
   Ismailia: 'الإسماعيلية', Suez: 'السويس', Fayoum: 'الفيوم', 'Beni Suef': 'بني سويف', Minya: 'المنيا', Assiut: 'أسيوط', Sohag: 'سوهاج', Qena: 'قنا',
   Luxor: 'الأقصر', Aswan: 'أسوان', 'Red Sea': 'البحر الأحمر', 'New Valley': 'الوادي الجديد', Matrouh: 'مطروح', 'North Sinai': 'شمال سيناء', 'South Sinai': 'جنوب سيناء' };
+const MONO = "ui-monospace,SFMono-Regular,Menlo,Consolas,'Courier New',monospace";
 const PATIENT_EMAILS_PER_DAY = 2; // per address: a typo'd or someone else's email can't be flooded
 
 function patientLayout(ar: boolean, r: Record<string, any>) {
   const svc = SERVICE_FULL[r.service];
   const day = r.preferred_date ? new Date(r.preferred_date + 'T12:00:00Z').toLocaleDateString(ar ? 'ar-EG-u-nu-latn' : 'en-GB',
     { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : '';
-  const slot = (SLOT[r.preferred_slot] ?? SLOT.any)[ar ? 0 : 1];
+  const slot = (SLOT[r.preferred_slot] ?? SLOT.any)[ar ? 0 : 1].replace(/^./, c => c.toUpperCase());
   const gov = ar ? (GOV_AR[r.governorate] ?? r.governorate) : r.governorate;
+  const booked = new Date().toLocaleDateString(ar ? 'ar-EG-u-nu-latn' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Cairo' });
   const T = ar ? {
-    title: 'تم استلام طلب الحجز', hi: `أهلاً ${esc(r.patient_name)}،`,
-    lead: `شكراً لاختيارك Nile Therapy. استلمنا طلبك، وسيتصل بك فريقنا على رقم <b dir="ltr">${esc(r.phone)}</b> لتأكيد الموعد.`,
-    no: 'رقم الطلب', service: 'الخدمة', price: 'السعر', priceVal: svc ? `${svc.price} ج.م · الدفع نقداً بعد الجلسة` : 'يُحدَّد عند تأكيد الموعد · الدفع نقداً بعد الجلسة',
-    day: 'اليوم المفضّل', area: 'العنوان', notChosen: 'سنساعدك في اختيارها', next: 'الخطوات التالية',
-    steps: ['نتصل بك لتأكيد الموعد.', 'يزورك أخصائي العلاج الطبيعي في بيتك.', 'الدفع نقداً بعد الجلسة.'],
-    wa: 'تواصل معنا عبر واتساب', foot: 'هذا ملخص لطلبك وليس فاتورة. وصلتك هذه الرسالة لأن هذا البريد كُتب في نموذج الحجز على niletherapy.org؛ إذا لم تكن أنت فتجاهلها.',
+    status: 'تم استلام طلبك', title: 'ملخص طلب الحجز', hi: `أهلاً ${esc(r.patient_name)}،`,
+    lead: `شكراً لاختيارك نايل ثيرابي. استلمنا طلب الحجز، وسيتصل بك فريقنا على <b dir="ltr" style="font-family:${MONO}">${esc(r.phone)}</b> لتأكيد الموعد.`,
+    no: 'رقم الطلب', date: 'تاريخ الطلب', service: 'الخدمة', day: 'اليوم المفضّل', time: 'الوقت', area: 'العنوان',
+    priceL: 'السعر', currency: 'ج.م', priceNote: 'الدفع نقداً بعد الجلسة — لا يُدفع شيء الآن', noPrice: 'يُحدَّد عند تأكيد الموعد',
+    notChosen: 'سنساعدك في اختيارها', next: 'الخطوات التالية',
+    steps: [['نتصل بك', 'لتأكيد اليوم والوقت المناسبين.'], ['نزورك في بيتك', 'أخصائي علاج طبيعي يأتي إليك.'], ['الدفع بعد الجلسة', 'نقداً، بعد انتهاء الجلسة.']],
+    wa: 'تواصل معنا عبر واتساب', help: 'لديك سؤال أو تريد تغيير الموعد؟ ردّ على هذه الرسالة أو راسلنا على واتساب.',
+    foot: 'هذا ملخص لطلبك وليس فاتورة. وصلتك هذه الرسالة لأن هذا البريد كُتب في نموذج الحجز على niletherapy.org؛ إذا لم تكن أنت فتجاهلها.',
+    pre: `طلب رقم ${r.id} — سنتصل بك لتأكيد الموعد.`,
   } : {
-    title: 'Booking request received', hi: `Hello ${esc(r.patient_name)},`,
-    lead: `Thank you for choosing Nile Therapy. We have your request, and our team will call you on <b dir="ltr">${esc(r.phone)}</b> to confirm the time.`,
-    no: 'Request number', service: 'Service', price: 'Price', priceVal: svc ? `${svc.price} EGP · pay cash after the session` : 'Confirmed when we call you · pay cash after the session',
-    day: 'Preferred day', area: 'Address', notChosen: "We'll help you choose", next: 'What happens next',
-    steps: ['We call you to confirm the time.', 'A physiotherapist visits you at home.', 'You pay cash after the session.'],
-    wa: 'Message us on WhatsApp', foot: 'This is a summary of your request, not an invoice. You got it because this email was entered in the booking form on niletherapy.org; if that was not you, please ignore it.',
+    status: 'Request received', title: 'Booking summary', hi: `Hello ${esc(r.patient_name)},`,
+    lead: `Thank you for choosing Nile Therapy. We have your booking request, and our team will call you on <b style="font-family:${MONO}">${esc(r.phone)}</b> to confirm the time.`,
+    no: 'Request no.', date: 'Requested on', service: 'Service', day: 'Preferred day', time: 'Time', area: 'Address',
+    priceL: 'Price', currency: 'EGP', priceNote: 'Pay cash after the session — nothing to pay now', noPrice: 'Confirmed when we call you',
+    notChosen: "We'll help you choose", next: 'What happens next',
+    steps: [['We call you', 'to agree on the day and time.'], ['We visit you at home', 'a physiotherapist comes to you.'], ['Pay after the session', 'in cash, once the session is done.']],
+    wa: 'Message us on WhatsApp', help: 'A question, or need to change the time? Reply to this email or message us on WhatsApp.',
+    foot: 'This is a summary of your request, not an invoice. You got it because this email was entered in the booking form on niletherapy.org; if that was not you, please ignore it.',
+    pre: `Request #${r.id} — we will call you to confirm the time.`,
   };
-  const row = (k: string, v: string) => `<tr><td style="padding:8px 10px;color:#5b7a78;white-space:nowrap;vertical-align:top">${k}</td><td style="padding:8px 10px;font-weight:600">${v}</td></tr>`;
-  const html = `<div dir="${ar ? 'rtl' : 'ltr'}" style="font-family:Segoe UI,Tahoma,Arial,sans-serif;max-width:560px;margin:auto;color:#0b2e33;text-align:${ar ? 'right' : 'left'}">
-  <div style="background:#0f7d74;color:#fff;padding:16px 20px;border-radius:12px 12px 0 0"><div style="font-weight:700;font-size:18px">Nile Therapy</div><div style="opacity:.9">${T.title}</div></div>
-  <div style="border:1px solid #d5e8e4;border-top:0;padding:20px;border-radius:0 0 12px 12px">
-    <p style="margin:0 0 6px;font-size:16px">${T.hi}</p><p style="margin:0 0 16px;line-height:1.7">${T.lead}</p>
-    <table style="width:100%;border-collapse:collapse;background:#f4faf8;border-radius:10px">
-      ${row(T.no, `#${r.id}`)}${row(T.service, svc ? (ar ? svc.ar : svc.en) : T.notChosen)}${row(T.price, T.priceVal)}
-      ${row(T.day, `${esc(day)} · ${slot}`)}${row(T.area, `${esc(gov)}${r.address ? ' — ' + esc(r.address) : ''}`)}
-    </table>
-    <h3 style="margin:18px 0 6px;font-size:15px">${T.next}</h3>
-    <ol style="margin:0;padding-${ar ? 'right' : 'left'}:20px;line-height:1.8">${T.steps.map(s => `<li>${s}</li>`).join('')}</ol>
-    <p style="margin:20px 0 6px;text-align:center"><a href="https://wa.me/${CONTACT.wa}" style="background:#0f7d74;color:#fff;text-decoration:none;padding:11px 20px;border-radius:999px;display:inline-block">${T.wa}</a></p>
-    <p style="text-align:center;color:#5b7a78;font-size:13px;margin:6px 0 0"><span dir="ltr">${CONTACT.phone}</span> · <a href="${SITE}" style="color:#0f7d74">niletherapy.org</a></p>
-    <p style="color:#7a9694;font-size:12px;margin-top:18px;line-height:1.6">${T.foot}</p>
-  </div></div>`;
-  const text = [T.title, '', T.hi, T.lead.replace(/<[^>]+>/g, ''), '', `${T.no}: #${r.id}`, `${T.service}: ${svc ? (ar ? svc.ar : svc.en) : T.notChosen}`,
-    `${T.price}: ${T.priceVal}`, `${T.day}: ${day} · ${slot}`, `${T.area}: ${gov}${r.address ? ' — ' + r.address : ''}`, '', T.next,
-    ...T.steps.map((s, i) => `${i + 1}. ${s}`), '', `WhatsApp: https://wa.me/${CONTACT.wa}`, '', T.foot].join('\n');
-  return { subject: `${T.title} #${r.id} — Nile Therapy`, html, text };
+  const dir = ar ? 'rtl' : 'ltr', start = ar ? 'right' : 'left', end = ar ? 'left' : 'right';
+  const font = ar ? "Tahoma,'Segoe UI',Arial,sans-serif" : "'Segoe UI',Helvetica,Arial,sans-serif";
+  const C = { ink: '#0b2e33', teal: '#0f7d74', deep: '#0b4f5c', mint: '#5cc9b5', soft: '#eef7f5', line: '#d9ebe7', muted: '#5f7d7b' };
+  const row = (k: string, v: string, last = false) => `<tr>
+      <td style="padding:12px 0;${last ? '' : `border-bottom:1px solid ${C.line};`}color:${C.muted};font-size:13px;width:38%;vertical-align:top">${k}</td>
+      <td style="padding:12px 0;${last ? '' : `border-bottom:1px solid ${C.line};`}color:${C.ink};font-size:15px;font-weight:700;vertical-align:top">${v}</td></tr>`;
+  const step = (n: number, h: string, p: string) => `<tr>
+      <td style="width:40px;vertical-align:top;padding:0 0 14px"><div style="width:30px;height:30px;line-height:30px;border-radius:15px;background:${C.teal};color:#fff;text-align:center;font-weight:700;font-family:${MONO};font-size:14px">${n}</div></td>
+      <td style="vertical-align:top;padding:4px 0 14px;font-size:14px;color:${C.ink}"><b>${h}</b> <span style="color:${C.muted}">${p}</span></td></tr>`;
+  const price = svc
+    ? `<div style="font-family:${MONO};font-size:30px;font-weight:700;color:${C.deep};letter-spacing:-0.5px" dir="${dir}">${svc.price.toLocaleString('en-US')}<span style="font-size:15px;font-weight:600;color:${C.teal}"> ${T.currency}</span></div>`
+    : `<div style="font-size:17px;font-weight:700;color:${C.deep}">${T.noPrice}</div>`;
+  const html = `<!doctype html><html lang="${ar ? 'ar' : 'en'}" dir="${dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${T.title}</title></head>
+<body style="margin:0;padding:0;background:#eef5f3">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0">${esc(T.pre)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef5f3"><tr><td align="center" style="padding:28px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" dir="${dir}" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;font-family:${font};text-align:${start};box-shadow:0 2px 10px rgba(11,79,92,.08)">
+  <tr><td style="height:6px;background:${C.teal};font-size:0;line-height:0">&nbsp;</td></tr>
+  <tr><td align="center" style="padding:28px 28px 8px"><a href="${SITE}"><img src="${SITE}/assets/email/logo.png" width="220" alt="Nile Therapy · نايل ثيرابي" style="display:block;width:220px;max-width:70%;height:auto;border:0"></a></td></tr>
+  <tr><td align="center" style="padding:8px 28px 0"><span style="display:inline-block;background:${C.soft};color:${C.teal};border:1px solid ${C.line};border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700">✓ ${T.status}</span></td></tr>
+  <tr><td style="padding:22px 32px 6px"><h1 style="margin:0 0 10px;font-size:24px;line-height:1.35;color:${C.ink};font-weight:800">${T.hi}</h1>
+    <p style="margin:0;font-size:15px;line-height:1.8;color:#2c4a4d">${T.lead}</p></td></tr>
+  <tr><td style="padding:20px 32px 0">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${C.line};border-radius:12px"><tr><td style="padding:6px 20px 8px">
+      <div style="padding:12px 0 4px;font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:${C.teal}">${T.title}</div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        ${row(T.no, `<span dir="ltr" style="font-family:${MONO};font-size:17px;color:${C.deep}">#${String(r.id).padStart(5, '0')}</span>`)}
+        ${row(T.date, esc(booked))}
+        ${row(T.service, svc ? (ar ? svc.ar : svc.en) : T.notChosen)}
+        ${row(T.day, esc(day))}
+        ${row(T.time, slot)}
+        ${row(T.area, `<span style="font-weight:600">${esc(gov)}${r.address ? ' — ' + esc(r.address) : ''}</span>`, true)}
+      </table>
+    </td></tr>
+    <tr><td style="background:${C.soft};border-top:1px solid ${C.line};padding:16px 20px;border-radius:0 0 12px 12px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+        <td style="vertical-align:middle"><div style="font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:${C.teal}">${T.priceL}</div>
+          <div style="font-size:13px;color:${C.muted};margin-top:4px">${T.priceNote}</div></td>
+        <td style="vertical-align:middle;text-align:${end};white-space:nowrap">${price}</td></tr></table>
+    </td></tr></table>
+  </td></tr>
+  <tr><td style="padding:26px 32px 4px"><div style="font-size:17px;font-weight:800;color:${C.ink};margin-bottom:14px">${T.next}</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${T.steps.map((s, i) => step(i + 1, s[0], s[1])).join('')}</table></td></tr>
+  <tr><td align="center" style="padding:8px 32px 6px">
+    <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:999px;background:${C.teal}">
+      <a href="https://wa.me/${CONTACT.wa}" style="display:inline-block;padding:14px 30px;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;font-family:${font}">${T.wa}</a></td></tr></table>
+    <p style="margin:14px 0 0;font-size:13px;color:${C.muted};line-height:1.7">${T.help}</p></td></tr>
+  <tr><td style="padding:22px 32px 26px"><div style="border-top:1px solid ${C.line};padding-top:18px;text-align:center;font-size:13px;color:${C.muted};line-height:1.9">
+    <b style="color:${C.deep}">Nile Therapy · نايل ثيرابي</b><br>
+    <span dir="ltr" style="font-family:${MONO}">${CONTACT.phone}</span><br><a href="mailto:${CONTACT.email}" style="color:${C.teal};text-decoration:none">${CONTACT.email}</a> &nbsp;·&nbsp; <a href="${SITE}" style="color:${C.teal};text-decoration:none">niletherapy.org</a>
+    <div style="margin-top:12px;font-size:11px;color:#8aa3a1;line-height:1.7">${T.foot}</div></div></td></tr>
+</table></td></tr></table></body></html>`;
+  const text = [`${T.status} — Nile Therapy`, '', T.hi.replace(/<[^>]+>/g, ''), T.lead.replace(/<[^>]+>/g, ''), '', `${T.no}: #${String(r.id).padStart(5, '0')}`,
+    `${T.service}: ${svc ? (ar ? svc.ar : svc.en) : T.notChosen}`, `${T.day}: ${day}`, `${T.time}: ${slot}`, `${T.area}: ${gov}${r.address ? ' — ' + r.address : ''}`,
+    `${T.priceL}: ${svc ? `${svc.price} ${T.currency}` : T.noPrice} (${T.priceNote})`, '', T.next,
+    ...T.steps.map((s, i) => `${i + 1}. ${s[0]} — ${s[1]}`), '', `WhatsApp: https://wa.me/${CONTACT.wa}`, `${CONTACT.phone} · ${CONTACT.email}`, '', T.foot].join('\n');
+  return { subject: `${T.status} #${String(r.id).padStart(5, '0')} — Nile Therapy`, html, text };
 }
 
 async function patientEmails(s: Settings) {
