@@ -1,6 +1,6 @@
 // Public booking form on niletherapy.org -> a patient request in the portal (source 'website').
 // No login. Protection: strict validation and length limits, a honeypot field, a per-IP rate limit
-// (only a salted hash of the IP is stored), the same phone can't book twice within 10 minutes or more than 3 times a day,
+// (only a salted hash of the IP is stored), a Cloudflare Turnstile bot check once TURNSTILE_SECRET_KEY is set, the same phone can't book twice within 10 minutes or more than 3 times a day,
 // and a site-wide hourly ceiling. With a map pin, the request is auto-assigned like any other; without one, or during an
 // unusual burst of bookings, it goes to the founders.
 import { admin, HttpError, serve, str } from '../_shared/common.ts';
@@ -14,14 +14,18 @@ const PER_IP_PER_HOUR = 5;
 const PHONE_PER_DAY = 3;
 const BURST_PER_HOUR = 15;  // more website bookings than this in an hour: stop auto-booking visits, send them to the founders
 const MAX_PER_HOUR = 60;    // hard ceiling for the whole site
+// Cloudflare Turnstile (bot check). Enforced only once the secret exists, so set the site key on the website FIRST.
+const TURNSTILE_SECRET = Deno.env.get("TURNSTILE_SECRET_KEY") ?? "";
 
 const MSG = {
   en: { name: 'Enter your full name.', phone: 'Enter a valid Egyptian mobile number.', gov: 'Choose your governorate.', addr: 'Enter your address or area.',
     date: 'Choose a day within the next 3 months.', consent: 'Please agree so we can contact you.', link: 'The map link must start with https://',
-    many: 'Too many requests. Please try again later or message us on WhatsApp.' },
+    many: 'Too many requests. Please try again later or message us on WhatsApp.',
+    bot: "We couldn't confirm you're not a robot. Refresh the page and try again." },
   ar: { name: 'اكتب الاسم بالكامل.', phone: 'اكتب رقم موبايل مصري صحيح.', gov: 'اختر المحافظة.', addr: 'اكتب العنوان أو المنطقة.',
     date: 'اختر يوماً خلال الأشهر الثلاثة القادمة.', consent: 'يجب الموافقة لنتمكن من التواصل معك.', link: 'رابط الموقع يجب أن يبدأ بـ https://',
-    many: 'طلبات كثيرة. حاول لاحقاً أو راسلنا على واتساب.' },
+    many: 'طلبات كثيرة. حاول لاحقاً أو راسلنا على واتساب.',
+    bot: 'تعذّر التحقق أنك لست روبوتاً. حدّث الصفحة وحاول مرة أخرى.' },
 };
 
 const cairoToday = () => new Date(Date.now() + 2 * 3600e3).toISOString().slice(0, 10); // Egypt is UTC+2 (UTC+3 in summer; a day's slack is fine)
@@ -45,6 +49,20 @@ function coordsFromLink(link: string): [number, number] | null {
 async function sha256(s: string) {
   const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
   return Array.from(new Uint8Array(b), x => x.toString(16).padStart(2, '0')).join('');
+}
+
+/** Cloudflare Turnstile: the token from the widget must be valid (single use, 5 minutes). If Cloudflare itself can't be
+ * reached, let the booking through: the rate limits below still apply, and a real patient isn't turned away. */
+async function checkTurnstile(token: string, ip: string, msg: string) {
+  if (!token) throw new HttpError(400, msg);
+  let res: Record<string, unknown>;
+  try {
+    const f = new FormData();
+    f.append('secret', TURNSTILE_SECRET); f.append('response', token); if (ip !== 'unknown') f.append('remoteip', ip);
+    const r = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body: f, signal: AbortSignal.timeout(8000) });
+    res = await r.json();
+  } catch (e) { console.warn('turnstile unreachable, letting the booking through', e); return; }
+  if (res.success !== true) { console.warn('turnstile failed', res['error-codes']); throw new HttpError(400, msg); }
 }
 
 serve(async (req, body) => {
@@ -74,10 +92,11 @@ serve(async (req, body) => {
     [lat, lng] = c ?? [NaN, NaN];
   }
   const hasPin = Number.isFinite(lat) && Number.isFinite(lng);
+  const ip = req.headers.get('cf-connecting-ip')?.trim() || (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown';
+  if (TURNSTILE_SECRET) await checkTurnstile(str(body.turnstile, 2048), ip, m.bot);
 
   // Rate limits. CF-Connecting-IP is set by Cloudflare in front of Supabase and can't be faked by the caller
   // (Cloudflare rejects requests that try); the first X-Forwarded-For entry is the fallback (Cloudflare rewrites it too).
-  const ip = req.headers.get('cf-connecting-ip')?.trim() || (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown';
   const ipHash = await sha256('nile-booking|' + ip);
   const hourAgo = new Date(Date.now() - 3600e3).toISOString();
   const { count: recent } = await admin.from('patient_requests').select('id', { count: 'exact', head: true }).eq('ip_hash', ipHash).gte('created_at', hourAgo);

@@ -1010,3 +1010,12 @@ html[dir="rtl"] td[dir="auto"], html[dir="rtl"] td [dir="auto"] { text-align: ri
 .use-bar { display: grid; grid-template-columns: 140px minmax(0, 1fr) 56px; gap: 10px; align-items: center; padding: 5px 0; font-size: 14px; }
 .use-track { height: 10px; background: var(--surface-2); border-radius: 999px; overflow: hidden; } .use-track i { display: block; height: 100%; background: var(--brand, #0f7d74); border-radius: 999px; }
 @media (max-width: 700px) { .small-stats { grid-template-columns: 1fr 1fr; } .fee-row input { width: 110px; } .use-bar { grid-template-columns: 100px minmax(0, 1fr) 44px; } }
+
+/* Email alerts (tech page) */
+.mail-form { display: grid; gap: 12px; }
+.mail-form textarea { font-family: inherit; }
+.mail-help { margin-top: 14px; }
+.mail-help ol { margin: 10px 0 0; padding-inline-start: 20px; display: grid; gap: 6px; }
+.mail-st { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--line, #e3efec); }
+.mail-sent { background: #dff3ea; color: #135c3a; }
+.mail-failed { background: #fde4df; color: #8a2a17; }

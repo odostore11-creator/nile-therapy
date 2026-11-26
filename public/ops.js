@@ -323,3 +323,58 @@ async function techCommissionPage(main) {
     el.innerHTML = `<p>${t('money.techTerms', { rate: fmtNum(cfg.rate), start: fmtDate(cfg.start_date), n: cfg.months })}</p>${statementHtml(rows, false)}`;
   } catch (x) { el.innerHTML = `<p class="error">${esc(x.message)}</p>`; }
 }
+
+// ---------- tech team (and founders' data rules allow it): email alerts through Resend ----------
+// Settings live in email_settings (one row); notify-email sends, email_log records what went out (no patient data).
+const splitEmails = v => [...new Set(String(v || '').split(/[\s,;]+/).map(x => x.trim()).filter(Boolean))];
+async function techEmailsPage(main) {
+  main.innerHTML = `<div class="head"><div><h1>${t('mail.title')}</h1><p class="muted">${t('mail.sub')}</p></div></div><div id="mail">${skeleton('page')}</div>`;
+  const el = main.querySelector('#mail');
+  let s, log;
+  try {
+    s = check(await sb.from('email_settings').select('*').eq('id', 1).maybeSingle());
+    log = check(await sb.from('email_log').select('*').order('created_at', { ascending: false }).limit(30));
+  } catch (x) { el.innerHTML = `<p class="error">${esc(x.message)}</p>`; return; }
+  if (!s) { el.innerHTML = `<p class="error">${t('mail.missing')}</p>`; return; }
+  const list = a => esc((a || []).join('\n'));
+  const field = (k, help) => `<label>${t('mail.' + k)}<textarea name="${k}" rows="2" dir="ltr" placeholder="name@example.com">${list(s[k])}</textarea><small class="muted">${t(help)}</small></label>`;
+  el.innerHTML = `<form class="card mail-form" id="mail-form">
+      <label class="check"><input type="checkbox" name="enabled" ${s.enabled ? 'checked' : ''}> <b>${t('mail.enabled')}</b></label>
+      <label>${t('mail.from')}<input name="from_address" dir="ltr" maxlength="200" value="${esc(s.from_address)}"><small class="muted">${t('mail.fromHelp')}</small></label>
+      ${field('bookings_to', 'mail.bookingsHelp')}${field('weekly_to', 'mail.weeklyHelp')}${field('tech_to', 'mail.techHelp')}
+      <p class="error" role="alert"></p>
+      <div class="actions"><button type="button" class="btn ghost" id="mail-test">${t('mail.test')}</button><button class="btn">${t('common.save')}</button></div>
+    </form>
+    <details class="card mail-help"><summary><b>${t('mail.howTitle')}</b></summary><ol>${[t('mail.how1'), t('mail.how2'), t('mail.how3'), t('mail.how4'), t('mail.how5')].map(x => `<li>${x}</li>`).join('')}</ol></details>
+    <div class="card" style="margin-top:14px"><h2 class="m-h">${t('mail.log')}</h2>
+      ${log.length ? `<div class="table-wrap"><table><thead><tr><th>${t('mail.when')}</th><th>${t('mail.kind')}</th><th>${t('mail.status')}</th><th>${t('mail.to')}</th></tr></thead><tbody>
+        ${log.map(r => `<tr><td>${ago(r.created_at)}</td><td>${t('mail.k.' + r.kind)}</td>
+          <td><span class="mail-st mail-${r.status}">${t('mail.st.' + r.status)}</span>${r.error ? `<div class="muted small" dir="ltr">${esc(r.error)}</div>` : ''}</td><td>${r.recipients || '—'}</td></tr>`).join('')}
+      </tbody></table></div>` : `<p class="empty">${t('mail.none')}</p>`}</div>`;
+  const form = el.querySelector('#mail-form');
+  const read = () => {
+    const b = { enabled: form.enabled.checked, from_address: form.from_address.value.trim() };
+    for (const k of ['bookings_to', 'weekly_to', 'tech_to']) {
+      b[k] = splitEmails(form[k].value);
+      const bad = b[k].find(x => !/^[^@\s<>,;"]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(x));
+      if (bad) throw new Error(t('mail.bad') + ' ' + bad);
+      if (b[k].length > 10) throw new Error(t('mail.tooMany'));
+    }
+    return b;
+  };
+  onSubmit(form, async () => {
+    check(await sb.from('email_settings').update(read()).eq('id', 1).select('id'));
+    toast(t('mail.saved'));
+  });
+  el.querySelector('#mail-test').onclick = async e => {
+    const btn = e.currentTarget, errEl = form.querySelector('.error');
+    errEl.textContent = ''; btn.disabled = true;
+    try {
+      check(await sb.from('email_settings').update(read()).eq('id', 1).select('id')); // test what is on screen
+      const r = await callFunction('notify-email', { action: 'test' });
+      toast(t('mail.testSent', { n: r.recipients }));
+      techEmailsPage(main);
+    } catch (x) { errEl.textContent = x.message; }
+    btn.disabled = false;
+  };
+}
