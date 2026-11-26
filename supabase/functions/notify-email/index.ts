@@ -100,7 +100,7 @@ async function bookings(s: Settings) {
   const rows = data ?? [];
   for (const id of await unsent('booking', rows.map(r => r.id))) {
     const r = rows.find(x => x.id === id)!;
-    await deliver(s, 'booking', String(id), s.bookings_to, `حجز جديد من الموقع · New website booking — ${r.governorate || ''}`, async () => {
+    await deliver(s, 'booking', String(id), s.bookings_to, `حجز جديد من الموقع · New website booking · ${r.governorate || ''}`, async () => {
       const doc = await doctorName(r.assigned_doctor_id);
       const svc = SERVICE[r.service] ?? ['غير محدد', 'Not chosen'];
       const slot = SLOT[r.preferred_slot] ?? SLOT.any;
@@ -123,9 +123,9 @@ async function referrals(s: Settings) {
   for (const id of await unsent('referral', rows.map(r => r.id))) {
     const r = rows.find(x => x.id === id)!;
     const urg = URGENCY[r.urgency] ?? URGENCY.flexible;
-    await deliver(s, 'referral', String(id), s.bookings_to, `${r.urgency === 'urgent' ? '⚠ ' : ''}إحالة جديدة · New referral — ${r.governorate || ''}`, async () => {
+    await deliver(s, 'referral', String(id), s.bookings_to, `${r.urgency === 'urgent' ? '⚠ ' : ''}إحالة جديدة · New referral · ${r.governorate || ''}`, async () => {
       const { data: p } = await admin.from('partner_profiles').select('organization, contact_person').eq('id', r.partner_id).maybeSingle();
-      const from = esc(p?.organization || p?.contact_person || '—');
+      const from = esc(p?.organization || p?.contact_person || '-');
       return layout(['إحالة جديدة من شريك', 'New referral from a partner'],
         [`من: <b>${from}</b>`, `المحافظة: ${esc(r.governorate)}`, `الأولوية: <b>${urg[0]}</b>`, r.preferred_start ? `البدء المفضّل: ${esc(r.preferred_start)}` : ''].filter(Boolean),
         [`From: <b>${from}</b>`, `Governorate: ${esc(r.governorate)}`, `Urgency: <b>${urg[1]}</b>`, r.preferred_start ? `Preferred start: ${esc(r.preferred_start)}` : ''].filter(Boolean),
@@ -195,88 +195,82 @@ const PATIENT_EMAILS_PER_DAY = 2; // per address: a typo'd or someone else's ema
 function patientLayout(ar: boolean, r: Record<string, any>) {
   const svc = SERVICE_FULL[r.service];
   const day = r.preferred_date ? new Date(r.preferred_date + 'T12:00:00Z').toLocaleDateString(ar ? 'ar-EG-u-nu-latn' : 'en-GB',
-    { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : '';
-  const slot = (SLOT[r.preferred_slot] ?? SLOT.any)[ar ? 0 : 1].replace(/^./, c => c.toUpperCase());
+    { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }) : '';
+  const slot = (SLOT[r.preferred_slot] ?? SLOT.any)[ar ? 0 : 1];
+  const when = r.preferred_slot && r.preferred_slot !== 'any' ? `${day}، ${slot}`.replace('،', ar ? '،' : ',') : day;
   const gov = ar ? (GOV_AR[r.governorate] ?? r.governorate) : r.governorate;
-  const booked = new Date().toLocaleDateString(ar ? 'ar-EG-u-nu-latn' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Cairo' });
+  const place = [r.address, gov].filter(Boolean).map(esc).join(ar ? '، ' : ', ');
+  const first = esc(String(r.patient_name || '').trim().split(/\s+/)[0] || r.patient_name);
   const T = ar ? {
-    status: 'تم استلام طلبك', title: 'ملخص طلب الحجز', hi: `أهلاً ${esc(r.patient_name)}،`,
-    lead: `شكراً لاختيارك نايل ثيرابي. استلمنا طلب الحجز، وسيتصل بك فريقنا على <b dir="ltr" style="font-family:${MONO}">${esc(r.phone)}</b> لتأكيد الموعد.`,
-    no: 'رقم الطلب', date: 'تاريخ الطلب', service: 'الخدمة', day: 'اليوم المفضّل', time: 'الوقت', area: 'العنوان',
-    priceL: 'السعر', currency: 'ج.م', priceNote: 'الدفع نقداً بعد الجلسة — لا يُدفع شيء الآن', noPrice: 'يُحدَّد عند تأكيد الموعد',
-    notChosen: 'سنساعدك في اختيارها', next: 'الخطوات التالية',
-    steps: [['نتصل بك', 'لتأكيد اليوم والوقت المناسبين.'], ['نزورك في بيتك', 'أخصائي علاج طبيعي يأتي إليك.'], ['الدفع بعد الجلسة', 'نقداً، بعد انتهاء الجلسة.']],
-    wa: 'تواصل معنا عبر واتساب', help: 'لديك سؤال أو تريد تغيير الموعد؟ ردّ على هذه الرسالة أو راسلنا على واتساب.',
-    foot: 'هذا ملخص لطلبك وليس فاتورة. وصلتك هذه الرسالة لأن هذا البريد كُتب في نموذج الحجز على niletherapy.org؛ إذا لم تكن أنت فتجاهلها.',
-    pre: `طلب رقم ${r.id} — سنتصل بك لتأكيد الموعد.`,
+    subject: `وصلنا طلب حجزك (رقم ${r.id})`,
+    pre: 'سنتصل بك قريباً لتحديد الموعد.',
+    hi: `أهلاً ${first}،`,
+    p1: `شكراً لحجزك مع نايل ثيرابي. وصلنا طلبك، وسيتصل بك أحد أفراد فريقنا قريباً على الرقم <span dir="ltr" style="font-family:${MONO};font-weight:700">${esc(r.phone)}</span> لنتفق معك على الموعد المناسب.`,
+    details: 'تفاصيل طلبك',
+    no: 'رقم الطلب', service: 'الخدمة', when: 'الموعد المفضّل', place: 'العنوان', price: 'السعر',
+    currency: 'ج.م', noPrice: 'نخبرك به عند الاتصال', notChosen: 'سنساعدك في اختيار الأنسب',
+    p2: 'الدفع نقداً بعد انتهاء الجلسة، ولا يوجد أي مبلغ مطلوب الآن.',
+    p3: `لو حابب تغيّر الموعد أو عندك أي سؤال، ردّ على هذا البريد أو راسلنا على <a href="https://wa.me/${CONTACT.wa}" style="color:#0f7d74;font-weight:700">واتساب</a>.`,
+    bye: 'مع تمنياتنا لك بالشفاء،', team: 'فريق نايل ثيرابي',
+    foot: 'وصلك هذا البريد لأن عنوانك كُتب في نموذج الحجز على موقعنا. هذا ملخص للطلب وليس فاتورة.',
   } : {
-    status: 'Request received', title: 'Booking summary', hi: `Hello ${esc(r.patient_name)},`,
-    lead: `Thank you for choosing Nile Therapy. We have your booking request, and our team will call you on <b style="font-family:${MONO}">${esc(r.phone)}</b> to confirm the time.`,
-    no: 'Request no.', date: 'Requested on', service: 'Service', day: 'Preferred day', time: 'Time', area: 'Address',
-    priceL: 'Price', currency: 'EGP', priceNote: 'Pay cash after the session — nothing to pay now', noPrice: 'Confirmed when we call you',
-    notChosen: "We'll help you choose", next: 'What happens next',
-    steps: [['We call you', 'to agree on the day and time.'], ['We visit you at home', 'a physiotherapist comes to you.'], ['Pay after the session', 'in cash, once the session is done.']],
-    wa: 'Message us on WhatsApp', help: 'A question, or need to change the time? Reply to this email or message us on WhatsApp.',
-    foot: 'This is a summary of your request, not an invoice. You got it because this email was entered in the booking form on niletherapy.org; if that was not you, please ignore it.',
-    pre: `Request #${r.id} — we will call you to confirm the time.`,
+    subject: `We got your booking request (no. ${r.id})`,
+    pre: 'We will call you soon to set the time.',
+    hi: `Hi ${first},`,
+    p1: `Thank you for booking with Nile Therapy. We have your request, and someone from our team will call you soon on <span style="font-family:${MONO};font-weight:700">${esc(r.phone)}</span> to agree on a time that suits you.`,
+    details: 'Your request',
+    no: 'Request no.', service: 'Service', when: 'Preferred time', place: 'Address', price: 'Price',
+    currency: 'EGP', noPrice: "We'll tell you when we call", notChosen: "We'll help you choose",
+    p2: 'You pay in cash after the session. There is nothing to pay now.',
+    p3: `If you need to change the time or have a question, just reply to this email or message us on <a href="https://wa.me/${CONTACT.wa}" style="color:#0f7d74;font-weight:700">WhatsApp</a>.`,
+    bye: 'Wishing you a good recovery,', team: 'The Nile Therapy team',
+    foot: 'You received this email because your address was entered in the booking form on our website. This is a summary of your request, not an invoice.',
   };
   const dir = ar ? 'rtl' : 'ltr', start = ar ? 'right' : 'left', end = ar ? 'left' : 'right';
-  const font = ar ? "Tahoma,'Segoe UI',Arial,sans-serif" : "'Segoe UI',Helvetica,Arial,sans-serif";
-  const C = { ink: '#0b2e33', teal: '#0f7d74', deep: '#0b4f5c', mint: '#5cc9b5', soft: '#eef7f5', line: '#d9ebe7', muted: '#5f7d7b' };
-  const row = (k: string, v: string, last = false) => `<tr>
-      <td style="padding:12px 0;${last ? '' : `border-bottom:1px solid ${C.line};`}color:${C.muted};font-size:13px;width:38%;vertical-align:top">${k}</td>
-      <td style="padding:12px 0;${last ? '' : `border-bottom:1px solid ${C.line};`}color:${C.ink};font-size:15px;font-weight:700;vertical-align:top">${v}</td></tr>`;
-  const step = (n: number, h: string, p: string) => `<tr>
-      <td style="width:40px;vertical-align:top;padding:0 0 14px"><div style="width:30px;height:30px;line-height:30px;border-radius:15px;background:${C.teal};color:#fff;text-align:center;font-weight:700;font-family:${MONO};font-size:14px">${n}</div></td>
-      <td style="vertical-align:top;padding:4px 0 14px;font-size:14px;color:${C.ink}"><b>${h}</b> <span style="color:${C.muted}">${p}</span></td></tr>`;
-  const price = svc
-    ? `<div style="font-family:${MONO};font-size:30px;font-weight:700;color:${C.deep};letter-spacing:-0.5px" dir="${dir}">${svc.price.toLocaleString('en-US')}<span style="font-size:15px;font-weight:600;color:${C.teal}"> ${T.currency}</span></div>`
-    : `<div style="font-size:17px;font-weight:700;color:${C.deep}">${T.noPrice}</div>`;
-  const html = `<!doctype html><html lang="${ar ? 'ar' : 'en'}" dir="${dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${T.title}</title></head>
-<body style="margin:0;padding:0;background:#eef5f3">
+  const font = ar ? "Tahoma,'Segoe UI',Arial,sans-serif" : "Georgia,'Segoe UI',Arial,sans-serif";
+  const body = ar ? font : "'Segoe UI',Helvetica,Arial,sans-serif";
+  const ink = '#1d3436', muted = '#5f7472', line = '#e3ebe9', teal = '#0f7d74';
+  const row = (k: string, v: string) => `<tr><td style="padding:9px 0;border-top:1px solid ${line};color:${muted};font-size:14px;width:36%;vertical-align:top">${k}</td>
+    <td style="padding:9px 0;border-top:1px solid ${line};color:${ink};font-size:15px;font-weight:700;vertical-align:top">${v}</td></tr>`;
+  const priceCell = svc
+    ? `<span dir="${dir}" style="font-family:${MONO};font-size:22px;font-weight:700;color:${ink}">${svc.price}</span> <span style="font-size:14px;color:${muted}">${T.currency}</span>`
+    : `<span style="font-weight:600">${T.noPrice}</span>`;
+  const p = (html: string, extra = '') => `<p style="margin:0 0 16px;font-size:15px;line-height:1.75;color:${ink};${extra}">${html}</p>`;
+  const html = `<!doctype html><html lang="${ar ? 'ar' : 'en'}" dir="${dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${esc(T.subject)}</title></head>
+<body style="margin:0;padding:0;background:#f3f6f5">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0">${esc(T.pre)}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef5f3"><tr><td align="center" style="padding:28px 12px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" dir="${dir}" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;font-family:${font};text-align:${start};box-shadow:0 2px 10px rgba(11,79,92,.08)">
-  <tr><td style="height:6px;background:${C.teal};font-size:0;line-height:0">&nbsp;</td></tr>
-  <tr><td align="center" style="padding:28px 28px 8px"><a href="${SITE}"><img src="${SITE}/assets/email/logo.png" width="220" alt="Nile Therapy · نايل ثيرابي" style="display:block;width:220px;max-width:70%;height:auto;border:0"></a></td></tr>
-  <tr><td align="center" style="padding:8px 28px 0"><span style="display:inline-block;background:${C.soft};color:${C.teal};border:1px solid ${C.line};border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700">✓ ${T.status}</span></td></tr>
-  <tr><td style="padding:22px 32px 6px"><h1 style="margin:0 0 10px;font-size:24px;line-height:1.35;color:${C.ink};font-weight:800">${T.hi}</h1>
-    <p style="margin:0;font-size:15px;line-height:1.8;color:#2c4a4d">${T.lead}</p></td></tr>
-  <tr><td style="padding:20px 32px 0">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${C.line};border-radius:12px"><tr><td style="padding:6px 20px 8px">
-      <div style="padding:12px 0 4px;font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:${C.teal}">${T.title}</div>
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-        ${row(T.no, `<span dir="ltr" style="font-family:${MONO};font-size:17px;color:${C.deep}">#${String(r.id).padStart(5, '0')}</span>`)}
-        ${row(T.date, esc(booked))}
-        ${row(T.service, svc ? (ar ? svc.ar : svc.en) : T.notChosen)}
-        ${row(T.day, esc(day))}
-        ${row(T.time, slot)}
-        ${row(T.area, `<span style="font-weight:600">${esc(gov)}${r.address ? ' — ' + esc(r.address) : ''}</span>`, true)}
-      </table>
-    </td></tr>
-    <tr><td style="background:${C.soft};border-top:1px solid ${C.line};padding:16px 20px;border-radius:0 0 12px 12px">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-        <td style="vertical-align:middle"><div style="font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:${C.teal}">${T.priceL}</div>
-          <div style="font-size:13px;color:${C.muted};margin-top:4px">${T.priceNote}</div></td>
-        <td style="vertical-align:middle;text-align:${end};white-space:nowrap">${price}</td></tr></table>
-    </td></tr></table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f6f5"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" dir="${dir}" style="max-width:560px;background:#ffffff;border:1px solid ${line};border-radius:10px;font-family:${body};text-align:${start}">
+  <tr><td style="padding:26px 30px 10px;text-align:${start}"><a href="${SITE}"><img src="${SITE}/assets/email/logo.png" width="170" alt="Nile Therapy" style="display:inline-block;width:170px;height:auto;border:0"></a></td></tr>
+  <tr><td style="padding:12px 30px 4px">
+    <p style="margin:0 0 14px;font-size:20px;font-weight:700;color:${ink};font-family:${font}">${T.hi}</p>
+    ${p(T.p1)}
   </td></tr>
-  <tr><td style="padding:26px 32px 4px"><div style="font-size:17px;font-weight:800;color:${C.ink};margin-bottom:14px">${T.next}</div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${T.steps.map((s, i) => step(i + 1, s[0], s[1])).join('')}</table></td></tr>
-  <tr><td align="center" style="padding:8px 32px 6px">
-    <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:999px;background:${C.teal}">
-      <a href="https://wa.me/${CONTACT.wa}" style="display:inline-block;padding:14px 30px;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;font-family:${font}">${T.wa}</a></td></tr></table>
-    <p style="margin:14px 0 0;font-size:13px;color:${C.muted};line-height:1.7">${T.help}</p></td></tr>
-  <tr><td style="padding:22px 32px 26px"><div style="border-top:1px solid ${C.line};padding-top:18px;text-align:center;font-size:13px;color:${C.muted};line-height:1.9">
-    <b style="color:${C.deep}">Nile Therapy · نايل ثيرابي</b><br>
-    <span dir="ltr" style="font-family:${MONO}">${CONTACT.phone}</span><br><a href="mailto:${CONTACT.email}" style="color:${C.teal};text-decoration:none">${CONTACT.email}</a> &nbsp;·&nbsp; <a href="${SITE}" style="color:${C.teal};text-decoration:none">niletherapy.org</a>
-    <div style="margin-top:12px;font-size:11px;color:#8aa3a1;line-height:1.7">${T.foot}</div></div></td></tr>
+  <tr><td style="padding:4px 30px 6px">
+    <p style="margin:0 0 6px;font-size:14px;font-weight:700;color:${teal}">${T.details}</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      ${row(T.no, `<span dir="ltr" style="font-family:${MONO}">#${r.id}</span>`)}
+      ${row(T.service, svc ? (ar ? svc.ar : svc.en) : T.notChosen)}
+      ${row(T.when, esc(when))}
+      ${place ? row(T.place, `<span style="font-weight:600">${place}</span>`) : ''}
+      <tr><td style="padding:12px 0;border-top:1px solid ${line};border-bottom:1px solid ${line};color:${muted};font-size:14px;vertical-align:middle">${T.price}</td>
+        <td style="padding:12px 0;border-top:1px solid ${line};border-bottom:1px solid ${line};vertical-align:middle">${priceCell}</td></tr>
+    </table>
+  </td></tr>
+  <tr><td style="padding:18px 30px 8px">
+    ${p(T.p2)}
+    ${p(T.p3)}
+    <p style="margin:22px 0 0;font-size:15px;line-height:1.6;color:${ink}">${T.bye}<br><b>${T.team}</b></p>
+  </td></tr>
+  <tr><td style="padding:18px 30px 24px"><div style="border-top:1px solid ${line};padding-top:14px;font-size:12px;line-height:1.8;color:${muted}">
+    <span dir="ltr" style="font-family:${MONO}">${CONTACT.phone}</span> &nbsp;|&nbsp; <a href="mailto:${CONTACT.email}" style="color:${muted}">${CONTACT.email}</a> &nbsp;|&nbsp; <a href="${SITE}" style="color:${muted}">niletherapy.org</a><br>${T.foot}</div></td></tr>
 </table></td></tr></table></body></html>`;
-  const text = [`${T.status} — Nile Therapy`, '', T.hi.replace(/<[^>]+>/g, ''), T.lead.replace(/<[^>]+>/g, ''), '', `${T.no}: #${String(r.id).padStart(5, '0')}`,
-    `${T.service}: ${svc ? (ar ? svc.ar : svc.en) : T.notChosen}`, `${T.day}: ${day}`, `${T.time}: ${slot}`, `${T.area}: ${gov}${r.address ? ' — ' + r.address : ''}`,
-    `${T.priceL}: ${svc ? `${svc.price} ${T.currency}` : T.noPrice} (${T.priceNote})`, '', T.next,
-    ...T.steps.map((s, i) => `${i + 1}. ${s[0]} — ${s[1]}`), '', `WhatsApp: https://wa.me/${CONTACT.wa}`, `${CONTACT.phone} · ${CONTACT.email}`, '', T.foot].join('\n');
-  return { subject: `${T.status} #${String(r.id).padStart(5, '0')} — Nile Therapy`, html, text };
+  const strip = (s: string) => s.replace(/<[^>]+>/g, '');
+  const text = [strip(T.hi), '', strip(T.p1), '', `${T.details}:`, `${T.no}: #${r.id}`, `${T.service}: ${svc ? (ar ? svc.ar : svc.en) : T.notChosen}`,
+    `${T.when}: ${when}`, place ? `${T.place}: ${strip(place)}` : '', `${T.price}: ${svc ? `${svc.price} ${T.currency}` : T.noPrice}`, '',
+    T.p2, strip(T.p3) + ` https://wa.me/${CONTACT.wa}`, '', T.bye, T.team, '', `${CONTACT.phone} | ${CONTACT.email} | niletherapy.org`, T.foot]
+    .filter((x, i, a) => x !== '' || a[i - 1] !== '').join('\n');
+  return { subject: T.subject, html, text };
 }
 
 async function patientEmails(s: Settings) {
@@ -318,7 +312,7 @@ async function test(req: Request) {
   if (!to.length) throw new HttpError(400, 'Add at least one email address first.');
   const { data: row } = await admin.from('email_log').insert({ kind: 'test', ref: String(Date.now()) }).select('id').single();
   try {
-    await sendEmail(s, to, 'تجربة · Test email — Nile Therapy', layout(['رسالة تجربة', 'Test email'],
+    await sendEmail(s, to, 'تجربة · Test email · Nile Therapy', layout(['رسالة تجربة', 'Test email'],
       ['إذا وصلتك هذه الرسالة فتنبيهات البريد تعمل.'], ['If you got this, email alerts work.'], ['افتح البوابة', 'Open the portal'], PORTAL));
     await finish(row!.id, to.length);
   } catch (e) {

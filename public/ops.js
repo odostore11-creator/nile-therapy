@@ -121,7 +121,7 @@ async function inboxPage(main) {
       ${waiting.length ? `<h2 class="ib-h muted">${t('inbox.waiting', { n: waiting.length })}</h2><p class="muted small">${t('inbox.waitingHelp')}</p><div class="inbox-grid">${waiting.map(card).join('')}</div>` : ''}`;
     let doctors = null, areas = null;
     const needDoctors = async () => {
-      if (!doctors) [doctors, areas] = await Promise.all([listDoctors(), sb.from('doctor_areas').select('*').then(check)]);
+      if (!doctors) [doctors, areas] = await Promise.all([listDoctors(), listAreas()]);
     };
     box.querySelectorAll('.inbox-card').forEach(c => {
       const it = items.find(i => i.kind === c.dataset.kind && String(i.r.id) === c.dataset.id), r = it.r;
