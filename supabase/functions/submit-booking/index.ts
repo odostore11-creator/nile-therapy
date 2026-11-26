@@ -20,11 +20,11 @@ const TURNSTILE_SECRET = Deno.env.get("TURNSTILE_SECRET_KEY") ?? "";
 const MSG = {
   en: { name: 'Enter your full name.', phone: 'Enter a valid Egyptian mobile number.', gov: 'Choose your governorate.', addr: 'Enter your address or area.',
     date: 'Choose a day within the next 3 months.', consent: 'Please agree so we can contact you.', link: 'The map link must start with https://',
-    many: 'Too many requests. Please try again later or message us on WhatsApp.',
+    many: 'Too many requests. Please try again later or message us on WhatsApp.', email: 'That email address does not look right (or leave it empty).',
     bot: "We couldn't confirm you're not a robot. Refresh the page and try again." },
   ar: { name: 'اكتب الاسم بالكامل.', phone: 'اكتب رقم موبايل مصري صحيح.', gov: 'اختر المحافظة.', addr: 'اكتب العنوان أو المنطقة.',
     date: 'اختر يوماً خلال الأشهر الثلاثة القادمة.', consent: 'يجب الموافقة لنتمكن من التواصل معك.', link: 'رابط الموقع يجب أن يبدأ بـ https://',
-    many: 'طلبات كثيرة. حاول لاحقاً أو راسلنا على واتساب.',
+    many: 'طلبات كثيرة. حاول لاحقاً أو راسلنا على واتساب.', email: 'البريد الإلكتروني غير صحيح (أو اتركه فارغاً).',
     bot: 'تعذّر التحقق أنك لست روبوتاً. حدّث الصفحة وحاول مرة أخرى.' },
 };
 
@@ -78,12 +78,14 @@ serve(async (req, body) => {
   const service = str(body.service, 40) in SERVICES ? str(body.service, 40) : '';
   const complaint = str(body.complaint, 1000);
   const link = str(body.map_link, 500);
+  const email = str(body.email, 254).toLowerCase(); // optional: the patient gets a booking summary (notify-email)
   if (name.length < 2) throw new HttpError(400, m.name);
   if (!phone) throw new HttpError(400, m.phone);
   if (!GOVERNORATES.includes(governorate)) throw new HttpError(400, m.gov);
   if (address.length < 3) throw new HttpError(400, m.addr);
   const today = cairoToday();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < addDays(today, -1) || date > addDays(today, 92)) throw new HttpError(400, m.date);
+  if (email && !/^[^@\s<>,;"]{1,64}@[a-z0-9.-]{1,190}\.[a-z]{2,24}$/.test(email)) throw new HttpError(400, m.email);
   if (link && !/^https:\/\/\S+$/i.test(link)) throw new HttpError(400, m.link);
   if (body.consent !== true) throw new HttpError(400, m.consent);
   let lat = Number(body.lat), lng = Number(body.lng);
@@ -120,7 +122,7 @@ serve(async (req, body) => {
   const { data, error } = await admin.rpc('create_patient_request', { p: {
     patient_name: name, phone, address, governorate, lat: autoRoute ? lat : '', lng: autoRoute ? lng : '', preferred_date: date < today ? today : date,
     preferred_slot: slot, service, session_type: 'Home visit', duration_min: SERVICES[service], condition: complaint.slice(0, 500), notes,
-    source: 'website', lang, ip_hash: ipHash,
+    source: 'website', lang, ip_hash: ipHash, email,
   } });
   if (error) { console.error(error); throw new HttpError(500, 'Server error'); }
   return { ok: true, status: (data as Record<string, unknown>)?.status ?? 'new' };

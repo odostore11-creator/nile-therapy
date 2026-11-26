@@ -110,6 +110,7 @@ async function inboxPage(main) {
         ${place ? `<p class="muted small" dir="auto">📍 ${esc(place)}</p>` : ''}
         ${r.condition ? `<p class="small" dir="auto">🩺 ${esc(r.condition)}</p>` : ''}
         ${r.phone ? `<p class="small"><a href="tel:${esc(r.phone)}" dir="ltr">${esc(r.phone)}</a>${waNumber(r.phone) ? ` · <a href="https://wa.me/${waNumber(r.phone)}" target="_blank" rel="noopener">${t('req.whatsapp')}</a>` : ''}</p>` : ''}
+        ${r.email ? `<p class="small"><a href="mailto:${esc(r.email)}" dir="ltr">${esc(r.email)}</a></p>` : ''}
         <div class="row ib-actions"><button type="button" class="btn sm" data-assign>${t('inbox.assign')}</button>
           ${kind === 'ref' && r.pdf_path ? `<button type="button" class="btn ghost sm" data-pdf>📄 ${t('ref.openPdf')}</button>` : ''}
           ${kind === 'ref' ? `<button type="button" class="btn ghost sm" data-decline>${t('ref.decline')}</button>` : `<button type="button" class="btn ghost sm" data-cancel>${t('inbox.cancel')}</button>`}</div>

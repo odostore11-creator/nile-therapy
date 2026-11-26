@@ -1,7 +1,7 @@
 // Email alerts through Resend. Woken by the database (a new website booking / referral, via pg_net) and by a cron job
 // every 10 minutes. Each call sends whatever is still unsent; email_log makes every email go out once (up to 3 tries).
-// Emails never contain the patient's name, phone or complaint: only what is needed to know there is work, plus a link
-// to the portal, where the details are behind a login.
+// Team emails never contain the patient's name, phone or complaint: only what is needed to know there is work, plus a link
+// to the portal, where the details are behind a login. The PATIENT's own summary (patientEmails) goes only to the email they typed.
 // No login needed to wake it (it returns nothing but {ok}); the 'test' action needs a founder or tech login.
 // Needs the secret RESEND_API_KEY, and email_settings.enabled + addresses (set on the tech page, Emails tab).
 import { admin, bearer, HttpError, serve } from '../_shared/common.ts';
@@ -44,11 +44,11 @@ function layout(title: [string, string], rowsAr: string[], rowsEn: string[], but
   return { html, text };
 }
 
-async function sendEmail(s: Settings, to: string[], subject: string, body: { html: string; text: string }) {
+async function sendEmail(s: Settings, to: string[], subject: string, body: { html: string; text: string }, replyTo?: string) {
   const r = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: s.from_address, to, subject, html: body.html, text: body.text }),
+    body: JSON.stringify({ from: s.from_address, to, subject, html: body.html, text: body.text, ...(replyTo ? { reply_to: replyTo } : {}) }),
   });
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
@@ -71,11 +71,11 @@ async function finish(id: number, recipients: number, err?: unknown) {
   await admin.from('email_log').update({ status: err ? 'failed' : 'sent', recipients, error: err ? String((err as Error).message ?? err).slice(0, 300) : '',
     updated_at: new Date().toISOString() }).eq('id', id);
 }
-async function deliver(s: Settings, kind: string, ref: string, to: string[], subject: string, make: () => Promise<{ html: string; text: string }>) {
+async function deliver(s: Settings, kind: string, ref: string, to: string[], subject: string, make: () => Promise<{ html: string; text: string }>, replyTo?: string) {
   if (!to.length) return;
   const id = await claim(kind, ref);
   if (id === null) return;
-  try { await sendEmail(s, to, subject, await make()); await finish(id, to.length); }
+  try { await sendEmail(s, to, subject, await make(), replyTo); await finish(id, to.length); }
   catch (e) { console.error(kind, ref, e); await finish(id, 0, e); }
 }
 
@@ -176,6 +176,80 @@ async function errorSpike(s: Settings) {
       ['افتح سجل الأخطاء', 'Open the error log'], PORTAL + '#/errors'));
 }
 
+// ---------- the patient's own booking summary (only when they typed an email on the website form) ----------
+// Their own details only (no doctor name: assignment can change). Prices: KEEP IN SYNC with nile-site/src/content.mjs SERVICES.
+const SITE = 'https://www.niletherapy.org';
+const CONTACT = { email: 'niletherapy.egy@gmail.com', wa: '201022478412', phone: '+20 102 247 8412' };
+const SERVICE_FULL: Record<string, { ar: string; en: string; price: number }> = {
+  'home-assessment': { ar: 'كشف منزلي وجلسة أولى', en: 'Home assessment & first session', price: 800 },
+  orthopedic: { ar: 'علاج طبيعي للعظام وما بعد الجراحة', en: 'Orthopedic & post-surgery physiotherapy', price: 500 },
+  neuro: { ar: 'تأهيل المخ والأعصاب والحبل الشوكي', en: 'Neurological & spinal cord rehabilitation', price: 500 },
+};
+const GOV_AR: Record<string, string> = { Cairo: 'القاهرة', Giza: 'الجيزة', Alexandria: 'الإسكندرية', Qalyubia: 'القليوبية', Sharqia: 'الشرقية',
+  Dakahlia: 'الدقهلية', Gharbia: 'الغربية', Monufia: 'المنوفية', Beheira: 'البحيرة', 'Kafr El Sheikh': 'كفر الشيخ', Damietta: 'دمياط', 'Port Said': 'بورسعيد',
+  Ismailia: 'الإسماعيلية', Suez: 'السويس', Fayoum: 'الفيوم', 'Beni Suef': 'بني سويف', Minya: 'المنيا', Assiut: 'أسيوط', Sohag: 'سوهاج', Qena: 'قنا',
+  Luxor: 'الأقصر', Aswan: 'أسوان', 'Red Sea': 'البحر الأحمر', 'New Valley': 'الوادي الجديد', Matrouh: 'مطروح', 'North Sinai': 'شمال سيناء', 'South Sinai': 'جنوب سيناء' };
+const PATIENT_EMAILS_PER_DAY = 2; // per address: a typo'd or someone else's email can't be flooded
+
+function patientLayout(ar: boolean, r: Record<string, any>) {
+  const svc = SERVICE_FULL[r.service];
+  const day = r.preferred_date ? new Date(r.preferred_date + 'T12:00:00Z').toLocaleDateString(ar ? 'ar-EG-u-nu-latn' : 'en-GB',
+    { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : '';
+  const slot = (SLOT[r.preferred_slot] ?? SLOT.any)[ar ? 0 : 1];
+  const gov = ar ? (GOV_AR[r.governorate] ?? r.governorate) : r.governorate;
+  const T = ar ? {
+    title: 'تم استلام طلب الحجز', hi: `أهلاً ${esc(r.patient_name)}،`,
+    lead: `شكراً لاختيارك Nile Therapy. استلمنا طلبك، وسيتصل بك فريقنا على رقم <b dir="ltr">${esc(r.phone)}</b> لتأكيد الموعد.`,
+    no: 'رقم الطلب', service: 'الخدمة', price: 'السعر', priceVal: svc ? `${svc.price} ج.م · الدفع نقداً بعد الجلسة` : 'يُحدَّد عند تأكيد الموعد · الدفع نقداً بعد الجلسة',
+    day: 'اليوم المفضّل', area: 'العنوان', notChosen: 'سنساعدك في اختيارها', next: 'الخطوات التالية',
+    steps: ['نتصل بك لتأكيد الموعد.', 'يزورك أخصائي العلاج الطبيعي في بيتك.', 'الدفع نقداً بعد الجلسة.'],
+    wa: 'تواصل معنا عبر واتساب', foot: 'هذا ملخص لطلبك وليس فاتورة. وصلتك هذه الرسالة لأن هذا البريد كُتب في نموذج الحجز على niletherapy.org؛ إذا لم تكن أنت فتجاهلها.',
+  } : {
+    title: 'Booking request received', hi: `Hello ${esc(r.patient_name)},`,
+    lead: `Thank you for choosing Nile Therapy. We have your request, and our team will call you on <b dir="ltr">${esc(r.phone)}</b> to confirm the time.`,
+    no: 'Request number', service: 'Service', price: 'Price', priceVal: svc ? `${svc.price} EGP · pay cash after the session` : 'Confirmed when we call you · pay cash after the session',
+    day: 'Preferred day', area: 'Address', notChosen: "We'll help you choose", next: 'What happens next',
+    steps: ['We call you to confirm the time.', 'A physiotherapist visits you at home.', 'You pay cash after the session.'],
+    wa: 'Message us on WhatsApp', foot: 'This is a summary of your request, not an invoice. You got it because this email was entered in the booking form on niletherapy.org; if that was not you, please ignore it.',
+  };
+  const row = (k: string, v: string) => `<tr><td style="padding:8px 10px;color:#5b7a78;white-space:nowrap;vertical-align:top">${k}</td><td style="padding:8px 10px;font-weight:600">${v}</td></tr>`;
+  const html = `<div dir="${ar ? 'rtl' : 'ltr'}" style="font-family:Segoe UI,Tahoma,Arial,sans-serif;max-width:560px;margin:auto;color:#0b2e33;text-align:${ar ? 'right' : 'left'}">
+  <div style="background:#0f7d74;color:#fff;padding:16px 20px;border-radius:12px 12px 0 0"><div style="font-weight:700;font-size:18px">Nile Therapy</div><div style="opacity:.9">${T.title}</div></div>
+  <div style="border:1px solid #d5e8e4;border-top:0;padding:20px;border-radius:0 0 12px 12px">
+    <p style="margin:0 0 6px;font-size:16px">${T.hi}</p><p style="margin:0 0 16px;line-height:1.7">${T.lead}</p>
+    <table style="width:100%;border-collapse:collapse;background:#f4faf8;border-radius:10px">
+      ${row(T.no, `#${r.id}`)}${row(T.service, svc ? (ar ? svc.ar : svc.en) : T.notChosen)}${row(T.price, T.priceVal)}
+      ${row(T.day, `${esc(day)} · ${slot}`)}${row(T.area, `${esc(gov)}${r.address ? ' — ' + esc(r.address) : ''}`)}
+    </table>
+    <h3 style="margin:18px 0 6px;font-size:15px">${T.next}</h3>
+    <ol style="margin:0;padding-${ar ? 'right' : 'left'}:20px;line-height:1.8">${T.steps.map(s => `<li>${s}</li>`).join('')}</ol>
+    <p style="margin:20px 0 6px;text-align:center"><a href="https://wa.me/${CONTACT.wa}" style="background:#0f7d74;color:#fff;text-decoration:none;padding:11px 20px;border-radius:999px;display:inline-block">${T.wa}</a></p>
+    <p style="text-align:center;color:#5b7a78;font-size:13px;margin:6px 0 0"><span dir="ltr">${CONTACT.phone}</span> · <a href="${SITE}" style="color:#0f7d74">niletherapy.org</a></p>
+    <p style="color:#7a9694;font-size:12px;margin-top:18px;line-height:1.6">${T.foot}</p>
+  </div></div>`;
+  const text = [T.title, '', T.hi, T.lead.replace(/<[^>]+>/g, ''), '', `${T.no}: #${r.id}`, `${T.service}: ${svc ? (ar ? svc.ar : svc.en) : T.notChosen}`,
+    `${T.price}: ${T.priceVal}`, `${T.day}: ${day} · ${slot}`, `${T.area}: ${gov}${r.address ? ' — ' + r.address : ''}`, '', T.next,
+    ...T.steps.map((s, i) => `${i + 1}. ${s}`), '', `WhatsApp: https://wa.me/${CONTACT.wa}`, '', T.foot].join('\n');
+  return { subject: `${T.title} #${r.id} — Nile Therapy`, html, text };
+}
+
+async function patientEmails(s: Settings) {
+  const since = new Date(Date.now() - 864e5).toISOString();
+  const { data } = await admin.from('patient_requests').select('id, patient_name, phone, email, address, governorate, service, preferred_date, preferred_slot, lang, status')
+    .eq('source', 'website').neq('email', '').neq('status', 'cancelled').gte('created_at', since).order('id').limit(50);
+  const rows = data ?? [];
+  for (const id of await unsent('patient', rows.map(r => r.id))) {
+    const r = rows.find(x => x.id === id)!;
+    const earlier = rows.filter(x => x.email === r.email && x.id < r.id).map(x => String(x.id));
+    if (earlier.length) {
+      const { count } = await admin.from('email_log').select('id', { count: 'exact', head: true }).eq('kind', 'patient').eq('status', 'sent').in('ref', earlier);
+      if ((count ?? 0) >= PATIENT_EMAILS_PER_DAY) continue;
+    }
+    const mail = patientLayout(r.lang !== 'en', r);
+    await deliver(s, 'patient', String(id), [r.email], mail.subject, async () => mail, CONTACT.email);
+  }
+}
+
 async function settings(): Promise<Settings> {
   const { data, error } = await admin.from('email_settings').select('enabled, from_address, bookings_to, weekly_to, tech_to').eq('id', 1).single();
   if (error) throw error;
@@ -213,7 +287,7 @@ serve(async (req, body) => {
   if (!KEY) return { ok: true };
   const s = await settings();
   if (!s.enabled) return { ok: true };
-  for (const job of [bookings, referrals, weekly, errorSpike]) {
+  for (const job of [patientEmails, bookings, referrals, weekly, errorSpike]) {
     try { await job(s); } catch (e) { console.error(job.name, e); }
   }
   return { ok: true };
