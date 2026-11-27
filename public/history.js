@@ -54,7 +54,11 @@ async function restoreChange(c) {
   if (o.patient_id && !(await listPatients(true)).some(p => p.id === o.patient_id)) delete o.patient_id;
   const pick = keys => Object.fromEntries(keys.filter(k => k in o).map(k => [k, o[k]]));
   if (c.table_name === 'sessions') check(await sb.from('sessions').insert(pick(SESSION_FIELDS)));
-  else if (c.table_name === 'appointments') check(await sb.from('appointments').insert(pick(VISIT_FIELDS)));
+  else if (c.table_name === 'appointments') {
+    const { status, ...visit } = pick(VISIT_FIELDS); // status can only be changed after the visit exists
+    const [row] = check(await sb.from('appointments').insert(visit).select('id'));
+    if (row && status && status !== 'planned') check(await sb.from('appointments').update({ status }).eq('id', row.id));
+  }
 }
 
 async function historyPage(main) {

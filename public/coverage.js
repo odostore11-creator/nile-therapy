@@ -52,7 +52,7 @@ const callRpc = async (fn, args) => check(await sb.rpc(fn, args));
 
 const minutesLeft = r => Math.max(0, OPEN_MINUTES - Math.floor((Date.now() - Date.parse(r.opened_at)) / 60000));
 const hasPin = r => r.lat != null && r.lng != null;
-const needsFounders = r => r.status === 'open' && (['out_of_area', 'visit_cancelled', 'no_location'].includes(r.reason) || minutesLeft(r) === 0);
+const needsFounders = r => r.status === 'open' && (['out_of_area', 'visit_cancelled', 'no_location', 'no_area'].includes(r.reason) || minutesLeft(r) === 0);
 const requestState = r => (r.status === 'cancelled' ? 'cancelled' : r.status !== 'open' ? 'done' : needsFounders(r) ? 'founders' : 'waiting');
 
 async function geocode(q) {

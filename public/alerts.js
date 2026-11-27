@@ -7,7 +7,20 @@
 // A short pop-up (toast) appears when the number goes up. Shared helpers come from core.js / coverage.js.
 
 const ALERT_EVERY_MS = 60 * 1000;
-const alertState = { timer: 0, items: [], lastCount: null, forUser: null };
+const alertState = { timer: 0, items: [], lastCount: null, forUser: null, visits: [], lastVisits: null };
+const seenKey = () => 'nt_visits_seen_' + state.user.id;
+function visitsSeenAt() {
+  try { const v = localStorage.getItem(seenKey()); if (v) return v; localStorage.setItem(seenKey(), new Date().toISOString()); } catch { /* private mode */ }
+  return new Date().toISOString(); // first time on this device: start from now, don't flood with old visits
+}
+function markVisitsSeen() {
+  try { localStorage.setItem(seenKey(), new Date().toISOString()); } catch { /* fine */ }
+  alertState.visits = []; alertState.lastVisits = 0;
+}
+async function fetchNewVisits() {
+  return check(await sb.from('appointments').select('id, patient_name, appt_date, appt_time, created_by').eq('doctor_id', state.user.id)
+    .eq('status', 'planned').gt('created_at', visitsSeenAt()).order('appt_date')).filter(a => a.created_by !== state.user.id);
+}
 
 async function fetchAlerts() {
   if (!state.user) return [];
@@ -23,8 +36,19 @@ function drawAlerts() {
   const navKey = doctor ? 'requests' : 'coverage';
   document.querySelectorAll(`.nav[href="#/${navKey}"] .nav-badge, .tab[href="#/${navKey}"] .nav-badge`).forEach(b => b.remove());
   if (n) document.querySelectorAll(`.nav[href="#/${navKey}"], .tab[href="#/${navKey}"]`).forEach(a => a.insertAdjacentHTML('beforeend', `<span class="nav-badge ${doctor ? '' : 'red'}">${n}</span>`));
+  // Doctors: new visits booked for them (count on "My schedule"; cleared by opening it).
+  document.querySelectorAll('.nav[href="#/schedule"] .nav-badge.new-visits, .tab[href="#/schedule"] .nav-badge.new-visits').forEach(b => b.remove());
+  const nv = doctor ? alertState.visits.length : 0;
+  if (nv) document.querySelectorAll('.nav[href="#/schedule"], .tab[href="#/schedule"]').forEach(a => a.insertAdjacentHTML('beforeend', `<span class="nav-badge new-visits">${nv}</span>`));
   syncGroupBadges();
   if (!slot) return;
+  if (nv && !location.hash.startsWith('#/schedule')) {
+    const v = alertState.visits;
+    slot.innerHTML = `<a class="alert-bar info" href="#/schedule" role="status"><span class="alert-ico" aria-hidden="true">📅</span>
+      <span><b>${t('alert.newVisits', { n: nv })}</b><br><span class="small">${v.slice(0, 3).map(a => `<bdi>${esc(a.patient_name)}</bdi> · ${fmtDay(a.appt_date, { weekday: 'short', day: 'numeric', month: 'short' })}`).join(' · ')}</span></span>
+      <span class="btn sm">${t('alert.newVisitsBtn')}</span></a>`;
+    return;
+  }
   const onPage = location.hash.startsWith(`#/${navKey}`);
   if (!n || onPage) { slot.innerHTML = ''; return; }
   const names = items.slice(0, 3).map(r => `<bdi>${esc(r.patient_name)}</bdi>`).join(' · ');
@@ -45,6 +69,17 @@ async function refreshAlerts() {
   if (state.user?.id !== who) return;
   const grew = alertState.lastCount !== null && items.length > alertState.lastCount;
   alertState.items = items; alertState.lastCount = items.length;
+  if (state.user.role === 'doctor') {
+    if (location.hash.startsWith('#/schedule')) markVisitsSeen();
+    else {
+      try {
+        const v = await fetchNewVisits();
+        if (state.user?.id !== who) return;
+        if (alertState.lastVisits !== null && v.length > alertState.lastVisits) toast(t('alert.newVisitsToast'));
+        alertState.visits = v; alertState.lastVisits = v.length;
+      } catch { /* keep what we had */ }
+    }
+  }
   drawAlerts();
   if (grew) toast(state.user.role === 'doctor' ? t('alert.doctorNew') : t('alert.foundersNew'));
 }
@@ -59,7 +94,7 @@ function startAlerts() {
 }
 function stopAlerts() {
   clearInterval(alertState.timer);
-  Object.assign(alertState, { timer: 0, items: [], lastCount: null, forUser: null });
+  Object.assign(alertState, { timer: 0, items: [], lastCount: null, forUser: null, visits: [], lastVisits: null });
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && alertState.timer) refreshAlerts(); });
 

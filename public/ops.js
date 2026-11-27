@@ -101,7 +101,7 @@ async function inboxPage(main) {
     const card = ({ kind, r, at }) => {
       const src = kind === 'ref' ? `<span class="src src-partner">${t('inbox.src.partner')}: <bdi>${esc(r.partner?.full_name || '')}</bdi></span>`
         : `<span class="src ${r.source === 'website' ? 'src-web' : 'src-manual'}">${t(r.source === 'website' ? 'inbox.src.web' : 'inbox.src.manual')}</span>`;
-      const why = kind === 'req' ? (needsFounders(r) ? t({ out_of_area: 'req.st.outOfArea', visit_cancelled: 'req.st.visitCancelled', no_location: 'req.st.noLocation' }[r.reason] || 'req.st.overdue') : t('req.st.waiting', { n: minutesLeft(r) })) : t('inbox.newReferral');
+      const why = kind === 'req' ? (needsFounders(r) ? t({ out_of_area: 'req.st.outOfArea', visit_cancelled: 'req.st.visitCancelled', no_location: 'req.st.noLocation', no_area: 'req.st.noArea' }[r.reason] || 'req.st.overdue') : t('req.st.waiting', { n: minutesLeft(r) })) : t('inbox.newReferral');
       const place = [kind === 'ref' ? govName(r.governorate) : (r.governorate || ''), r.address].filter(Boolean).join(' · ');
       return `<article class="card inbox-card" data-kind="${kind}" data-id="${r.id}">
         <div class="ib-top">${src}<span class="muted small">${t('inbox.waited', { t: ago(at) })}</span></div>

@@ -201,6 +201,7 @@ function apptCard(a, showDoctor) {
 // ---------- the page ----------
 async function schedulePage(main) {
   const founder = state.user.role === 'admin';
+  if (!founder) { markVisitsSeen(); drawAlerts(); } // opening the schedule clears "new visits booked for you"
   let doctors = [];
   if (founder) {
     try { doctors = await listDoctors(); } catch (err) { main.innerHTML = `<div class="card empty">${esc(err.message)}</div>`; return; }
