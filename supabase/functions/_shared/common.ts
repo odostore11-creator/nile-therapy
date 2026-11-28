@@ -86,9 +86,8 @@ export function serve(handler: (req: Request, body: Record<string, unknown>) => 
 
 export const str = (v: unknown, max = 500) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
-// Short and normal-looking, easy to type on a phone: word + '#' + 3 digits ("cedar#482"). Not based on the person's name.
-const PW_WORDS = 'amber basil beach birch brook cedar cliff cloud coral crane delta dune eagle fern flame frost grove hazel honey jade kite lake lemon lily lotus maple mint moon north oasis ocean olive palm pearl pine plum pond rain reef river rose sage sand sky snow star stone sun swan tiger tulip wave wind wood'.split(' ');
-function rnd(n: number) { const b = new Uint32Array(1); crypto.getRandomValues(b); return b[0] % n; }
-export function randomPassword(): string {
-  return PW_WORDS[rnd(PW_WORDS.length)] + '#' + String(100 + rnd(900));
+// What Omar asked for: the person's username (their first name) + '#' + 3 digits, e.g. "essam#482". Short and easy to type.
+export function randomPassword(username: string): string {
+  const b = new Uint32Array(1); crypto.getRandomValues(b);
+  return username + '#' + String(100 + (b[0] % 900));
 }

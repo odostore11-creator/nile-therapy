@@ -27,7 +27,7 @@ async function createAccount(username: string, profile: Record<string, unknown>)
   if (!/^[a-z0-9._-]{3,40}$/.test(username)) throw new HttpError(400, 'Username: 3+ characters, letters/numbers/._- only');
   const { data: taken } = await admin.from('profiles').select('id').eq('username', username).maybeSingle();
   if (taken) throw new HttpError(409, 'That username is taken');
-  const password = randomPassword();
+  const password = randomPassword(username);
   const { data: created, error } = await admin.auth.admin.createUser({
     email: `${username}@${EMAIL_DOMAIN}`, password, email_confirm: true, app_metadata: { username },
   });
@@ -46,7 +46,7 @@ async function createAccount(username: string, profile: Record<string, unknown>)
 async function resetPassword(id: string, role: string, notFound: string) {
   const { data: p } = await admin.from('profiles').select('id, username').eq('id', id).eq('role', role).maybeSingle();
   if (!p) throw new HttpError(404, notFound);
-  const password = randomPassword();
+  const password = randomPassword(p.username);
   const { error } = await admin.auth.admin.updateUserById(p.id, { password });
   if (error) { console.error(error); throw new HttpError(500, 'Could not reset the password'); }
   await admin.rpc('revoke_user_sessions', { uid: p.id }); // log them out everywhere
