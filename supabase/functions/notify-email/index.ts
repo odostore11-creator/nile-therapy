@@ -6,7 +6,7 @@
 // Needs the secret RESEND_API_KEY, and email_settings.enabled + addresses (set on the tech page, Emails tab).
 import { admin, bearer, HttpError, serve } from '../_shared/common.ts';
 
-const PORTAL = 'https://odostore11-creator.github.io/nile-therapy/';
+const PORTAL = 'https://niletherapyport.site/';
 const KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const ERRORS_PER_HOUR = 10;
 

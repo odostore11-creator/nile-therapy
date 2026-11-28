@@ -1,5 +1,5 @@
 # Publishes the public/ folder to GitHub Pages on every push to main.
-# Live at https://odostore11-creator.github.io/nile-therapy/
+# Live at https://niletherapyport.site/ (custom domain; the github.io address redirects there)
 name: Deploy site to GitHub Pages
 
 on:
