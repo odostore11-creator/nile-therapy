@@ -7,7 +7,7 @@
 function sessionFormHtml(s = {}, { doctors, future = false, fees = false } = {}) {
   const type = s.session_type || 'Home visit';
   return `
-    ${doctors ? `<div class="field"><label>${t('form.doctor')}</label><select name="doctor_id" required><option value="">${t('form.choose')}</option>${doctors.filter(d => d.active).map(d => `<option value="${d.id}" ${s.doctor_id === d.id ? 'selected' : ''}>${esc(d.full_name)}</option>`).join('')}</select></div>` : ''}
+    ${doctors ? `<div class="field"><label>${t('form.doctor')}</label><select name="doctor_id" required><option value="">${t('form.choose')}</option>${doctors.filter(d => d.active).map(d => `<option value="${d.id}" ${s.doctor_id === d.id ? 'selected' : ''}>${esc(whoLabel(d))}</option>`).join('')}</select></div>` : ''}
     ${patientFieldHtml(s)}
     <div class="field"><label>${t('form.type')}</label>
       <input type="hidden" name="session_type" value="${esc(type)}">
@@ -244,7 +244,7 @@ async function doctorPortal(main) {
 // ---------- admin: sessions ----------
 async function sessionsPage(main) {
   let doctors;
-  try { doctors = await listDoctors(); }
+  try { doctors = await listTreaters(); }
   catch (err) { main.innerHTML = `<div class="card empty">${esc(err.message)}</div>`; return; }
   main.innerHTML = `
     <div class="head">
@@ -254,7 +254,7 @@ async function sessionsPage(main) {
     <div class="stats" id="stats"></div>
     <div class="toolbar">
       <div class="field grow"><label for="q">${t('sessions.search')}</label><input id="q" placeholder="${esc(t('sessions.search.ph'))}" dir="auto"></div>
-      <div class="field"><label for="doc">${t('form.doctor')}</label><select id="doc"><option value="">${t('sessions.allDoctors')}</option>${doctors.map(d => `<option value="${d.id}">${esc(d.full_name)}</option>`).join('')}</select></div>
+      <div class="field"><label for="doc">${t('form.doctor')}</label><select id="doc"><option value="">${t('sessions.allDoctors')}</option>${doctors.map(d => `<option value="${d.id}">${esc(whoLabel(d))}</option>`).join('')}</select></div>
       <div class="field"><label for="from">${t('sessions.from')}</label><input id="from" type="date" value="${today().slice(0, 8)}01"></div>
       <div class="field"><label for="to">${t('sessions.to')}</label><input id="to" type="date"></div>
       <div class="seg" role="group" aria-label="${esc(t('sessions.view'))}"><button data-view="grouped">${t('sessions.byDoctor')}</button><button data-view="list">${t('sessions.oneList')}</button></div>
@@ -285,7 +285,7 @@ async function sessionsPage(main) {
       [sessions.length, t('sessions.stat.filtered')],
       [thisMonth, t('sessions.stat.month')],
       [sessions.filter(s => s.session_date >= weekAgo).length, t('sessions.stat.week')],
-      [`<bdi dir="ltr">${new Set(sessions.map(s => s.doctor_id)).size} / ${doctors.filter(d => d.active).length}</bdi>`, t('sessions.stat.active')],
+      [`<bdi dir="ltr">${new Set(sessions.map(s => s.doctor_id)).size} / ${doctors.filter(d => d.active && d.role === 'doctor').length}</bdi>`, t('sessions.stat.active')],
     ].map(([n, l]) => `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
 
     if (state.sessionsView === 'list') {

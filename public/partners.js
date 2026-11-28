@@ -352,10 +352,10 @@ async function setReferralStatus(r, to, done) {
 
 async function assignReferralModal(r, done) {
   let doctors;
-  try { doctors = (await listDoctors()).filter(d => d.active); } catch (x) { return toast(x.message); }
+  try { doctors = (await listTreaters()).filter(d => d.active); } catch (x) { return toast(x.message); } // founders included, last
   modal(`<h2>${t('ref.assignTitle')}</h2><p class="muted" dir="auto">${esc(r.patient_name)}${r.governorate ? ` · ${esc(govName(r.governorate))}` : ''}</p>
     <form>
-      <div class="field"><label>${t('ref.pickDoctor')} *</label><select name="doctor" required><option value="">—</option>${doctors.map(d => `<option value="${d.id}" ${d.id === r.assigned_doctor_id ? 'selected' : ''}>${esc(d.full_name)}${d.area ? ` · ${esc(d.area)}` : ''}</option>`).join('')}</select></div>
+      <div class="field"><label>${t('ref.pickDoctor')} *</label><select name="doctor" required><option value="">—</option>${doctors.map(d => `<option value="${d.id}" ${d.id === r.assigned_doctor_id ? 'selected' : ''}>${esc(whoLabel(d))}${d.area ? ` · ${esc(d.area)}` : ''}</option>`).join('')}</select></div>
       <fieldset class="ref-visit"><legend>${t('ref.firstVisit')} <span class="muted">${t('form.optional')}</span></legend>
         <div class="grid2">
           <div class="field"><label>${t('form.date')}</label><input name="date" type="date" min="${today()}" value="${r.preferred_start && r.preferred_start >= today() ? r.preferred_start : ''}"></div>

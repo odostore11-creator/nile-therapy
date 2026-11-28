@@ -204,7 +204,7 @@ async function schedulePage(main) {
   if (!founder) { markVisitsSeen(); drawAlerts(); } // opening the schedule clears "new visits booked for you"
   let doctors = [];
   if (founder) {
-    try { doctors = await listDoctors(); } catch (err) { main.innerHTML = `<div class="card empty">${esc(err.message)}</div>`; return; }
+    try { doctors = await listTreaters(); } catch (err) { main.innerHTML = `<div class="card empty">${esc(err.message)}</div>`; return; }
   }
   state.schedWeek ||= weekStart(today());
   main.innerHTML = `
@@ -220,7 +220,7 @@ async function schedulePage(main) {
       </div>
       <strong id="range" class="sched-range"></strong>
       <span style="flex:1"></span>
-      ${founder ? `<div class="field"><label for="sdoc">${t('form.doctor')}</label><select id="sdoc"><option value="">${t('sessions.allDoctors')}</option>${doctors.filter(d => d.active).map(d => `<option value="${d.id}" ${state.schedDoctor === d.id ? 'selected' : ''}>${esc(d.full_name)}</option>`).join('')}</select></div>` : ''}
+      ${founder ? `<div class="field"><label for="sdoc">${t('form.doctor')}</label><select id="sdoc"><option value="">${t('sessions.allDoctors')}</option>${doctors.filter(d => d.active).map(d => `<option value="${d.id}" ${state.schedDoctor === d.id ? 'selected' : ''}>${esc(whoLabel(d))}</option>`).join('')}</select></div>` : ''}
       <label class="check"><input type="checkbox" id="showcx" ${state.schedShowCancelled ? 'checked' : ''}> ${t('sched.showCancelled')}</label>
     </div>
     <div id="weeknote"></div>

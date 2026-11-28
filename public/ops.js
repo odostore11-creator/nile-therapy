@@ -165,7 +165,7 @@ async function moneyPage(main) {
     <h2 class="m-h">${t('money.techTitle')}</h2><p class="muted small">${t('money.techSub')}</p><div id="m-tech" class="card">${skeleton('list', 1)}</div>`;
   main.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { state.moneyMonth = opsShiftMonth(ym, Number(b.dataset.m)); moneyPage(main); });
   let doctors = [];
-  try { doctors = await listDoctors(); } catch { /* names fall back to '?' */ }
+  try { doctors = await listTreaters(); } catch { /* names fall back to '?' */ }
   const name = id => doctors.find(d => d.id === id)?.full_name || '?';
 
   // This month

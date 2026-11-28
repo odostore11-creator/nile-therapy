@@ -208,7 +208,8 @@ async function coveragePage(main) {
           ${r.address ? `<div class="muted small" dir="auto">${esc(r.address)}</div>` : ''}${extra ? `<div class="muted small" dir="auto">${extra}</div>` : ''}
           ${r.condition ? `<div class="small" dir="auto">🩺 ${esc(r.condition)}</div>` : ''}${r.phone ? `<div class="muted small"><a href="tel:${esc(r.phone)}" dir="ltr">${esc(r.phone)}</a> · <a href="https://wa.me/${waNumber(r.phone) || ''}" target="_blank" rel="noopener">${t('req.whatsapp')}</a></div>` : ''}${r.email ? `<div class="muted small"><a href="mailto:${esc(r.email)}" dir="ltr">${esc(r.email)}</a></div>` : ''}</div>
         <div class="req-actions">${hasPin(r) ? `<button type="button" class="btn ghost sm" data-show="${r.id}">${t('cov.showOnMap')}</button>` : `<span class="muted small">${t('req.noPin')}</span>`}
-          ${st === 'founders' || st === 'waiting' ? `<button type="button" class="btn sm" data-assign="${r.id}">${t('cov.assign')}</button><button type="button" class="btn danger sm" data-cancelreq="${r.id}">${t('common.cancel')}</button>` : ''}</div></div>`;
+          ${st === 'founders' || st === 'waiting' ? `<button type="button" class="btn sm" data-assign="${r.id}">${t('cov.assign')}</button><button type="button" class="btn danger sm" data-cancelreq="${r.id}">${t('common.cancel')}</button>` : ''}
+          ${st === 'done' ? `<button type="button" class="btn ghost sm" data-assign="${r.id}">${t('cov.reassign')}</button>` : ''}</div></div>`;
     }).join('') : `<div class="empty">${t('cov.empty.' + state.covTab)}</div>`;
     main.querySelectorAll('[data-show]').forEach(b => b.onclick = () => { const r = requests.find(x => x.id == b.dataset.show); map.setView([r.lat, r.lng], 14); $('map').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
     main.querySelectorAll('[data-assign]').forEach(b => b.onclick = () => assignModal(requests.find(x => x.id == b.dataset.assign), doctors, areas, load));
@@ -305,9 +306,11 @@ async function coveragePage(main) {
   }
 
   async function load() {
-    try { [doctors, areas, requests, logged] = await Promise.all([listDoctors(), listAreas(), listRequests(), loggedSessionPins().catch(() => [])]); }
+    let people;
+    try { [people, areas, requests, logged] = await Promise.all([listTreaters(), listAreas(), listRequests(), loggedSessionPins().catch(() => [])]); }
     catch (err) { $('reqlist').innerHTML = `<div class="empty">${esc(err.message)}</div>`; return; }
-    names = new Map(doctors.map(d => [d.id, d.full_name]));
+    doctors = people.filter(d => d.role === 'doctor'); // coverage areas are for doctors
+    names = new Map(people.map(d => [d.id, d.full_name])); // founders can be given patients too
     drawAll(); drawDoctors(); drawList();
   }
   main.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { state.covTab = b.dataset.tab; drawList(); });
@@ -374,29 +377,35 @@ async function requestResultModal(res) {
 }
 
 // ---------- founders: assign a request by hand (may go over the daily limit) ----------
+// Also used to CHANGE the doctor of a request that is already booked (auto-assigned, taken or given by a founder):
+// the same visit moves to the new person. Founders are in the list too, after the doctors.
 async function assignModal(r, doctors, areas, onDone) {
   let appts = [], sess = [];
-  try { [appts, sess] = await Promise.all([listAppointments({ from: r.preferred_date, to: r.preferred_date, statuses: ['planned', 'done'] }),
+  try { [doctors, appts, sess] = await Promise.all([listTreaters().catch(() => doctors),
+    listAppointments({ from: r.preferred_date, to: r.preferred_date, statuses: ['planned', 'done'] }),
     listSessions({ from: r.preferred_date, to: r.preferred_date })]); } catch { /* counts just show 0 */ }
+  const moving = r.status !== 'open';
   const linked = new Set(appts.map(a => a.session_id).filter(Boolean));
   const load = id => appts.filter(a => a.doctor_id === id).length + sess.filter(s => s.doctor_id === id && !linked.has(s.id)).length;
-  const rows = doctors.filter(d => d.active).map(d => {
+  const rows = doctors.filter(d => d.active && d.id !== (moving ? r.assigned_doctor_id : null)).map(d => {
     const mine = areas.filter(x => x.doctor_id === d.id);
     const km = mine.length && hasPin(r) ? Math.min(...mine.map(a => kmBetween([r.lat, r.lng], areaMiddle(a.coords)))) : null;
     return { d, n: load(d.id), km };
-  }).sort((x, y) => (x.km ?? 1e9) - (y.km ?? 1e9));
-  modal(`<h2>${t('cov.assignTitle', { name: r.patient_name })}</h2>
+  }).sort((x, y) => (x.d.role === 'admin') - (y.d.role === 'admin') || (x.km ?? 1e9) - (y.km ?? 1e9));
+  const now = moving ? doctors.find(d => d.id === r.assigned_doctor_id)?.full_name || '?' : '';
+  modal(`<h2>${t(moving ? 'cov.reassignTitle' : 'cov.assignTitle', { name: r.patient_name })}</h2>
+    ${moving ? `<p class="small" dir="auto">${t('cov.reassignNow', { name: `<bdi>${esc(now)}</bdi>` })}</p>` : ''}
     <p class="muted small">${t('cov.assignHelp', { date: fmtDay(r.preferred_date, { weekday: 'long', day: 'numeric', month: 'long' }), limit: DAILY_LIMIT })}</p>
     <div class="assign-list">${rows.map(({ d, n, km }) => `<button type="button" class="assign-row ${n >= DAILY_LIMIT ? 'full' : ''}" data-doc="${d.id}">
-      <b dir="auto">${esc(d.full_name)}</b><span class="small muted">${km != null ? t('cov.kmAway', { km: Math.round(km) }) : t('cov.noArea')}</span>
+      <b dir="auto">${esc(d.full_name)}${d.role === 'admin' ? ` <span class="pill">${t('role.founder')}</span>` : ''}</b><span class="small muted">${km != null ? t('cov.kmAway', { km: Math.round(km) }) : d.role === 'admin' ? '' : t('cov.noArea')}</span>
       <span class="load ${n >= DAILY_LIMIT ? 'full' : ''}"><bdi dir="ltr">${n} / ${DAILY_LIMIT}</bdi></span></button>`).join('')}</div>
     <div class="error" role="alert"></div><div class="actions"><button type="button" class="btn ghost" data-close>${t('common.cancel')}</button></div>`, (m, close) => {
     m.querySelectorAll('[data-doc]').forEach(b => b.onclick = async () => {
       const row = rows.find(x => x.d.id === b.dataset.doc);
       const over = row.n >= DAILY_LIMIT;
-      if (!await confirmAction({ title: t('cov.assignQ', { patient: r.patient_name, name: row.d.full_name }), message: over ? t('cov.overLimit', { n: row.n }) : '',
-        confirm: t('cov.assign'), danger: over })) return;
-      try { await callRpc('assign_patient_request', { req_id: r.id, doc: row.d.id }); close(); toast(t('cov.assigned')); await onDone(); }
+      if (!await confirmAction({ title: t(moving ? 'cov.reassignQ' : 'cov.assignQ', { patient: r.patient_name, name: row.d.full_name }), message: over ? t('cov.overLimit', { n: row.n }) : '',
+        confirm: t(moving ? 'cov.reassign' : 'cov.assign'), danger: over })) return;
+      try { await callRpc('assign_patient_request', { req_id: r.id, doc: row.d.id }); close(); toast(t(moving ? 'cov.reassigned' : 'cov.assigned')); await onDone(); }
       catch (err) { m.querySelector('.error').textContent = err.message; }
     });
   });

@@ -333,6 +333,22 @@ async function listDoctors() {
   const byId = new Map(check(stats).map(s => [s.doctor_id, s]));
   return check(docs).map(d => ({ ...d, stats: statsFor(byId.get(d.id)) }));
 }
+// Everyone who can be given a patient or a visit: the doctors plus the founders (founders treat patients too).
+// Founders come last and carry role 'admin'; use whoLabel() to show "· Founder" next to their name.
+async function listTreaters() {
+  const [docs, founders] = await Promise.all([listDoctors(),
+    sb.from('profiles').select('*').eq('role', 'admin').eq('active', true).order('full_name').then(check)]);
+  return [...docs, ...founders.map(f => ({ ...f, stats: statsFor(null) }))];
+}
+const whoLabel = d => d.role === 'admin' ? `${d.full_name} · ${t('role.founder')}` : d.full_name;
+
+// Profile pictures (public/img/people/<username>.jpg). Anyone without one gets their initials.
+const PHOTOS = new Set(['mostafa', 'abdelrahman', 'ahmed']);
+function avatarHtml(p, cls = '') {
+  if (p && PHOTOS.has(p.username)) return `<div class="avatar photo ${cls}"><img src="img/people/${p.username}.jpg" alt="" width="72" height="72" loading="lazy" decoding="async"></div>`;
+  return `<div class="avatar ${cls}">${esc(initials(p?.full_name))}</div>`;
+}
+
 async function getDoctor(id, from = null) {
   const [doc, stats, sessions] = await Promise.all([
     sb.from('profiles').select('*').eq('id', id).eq('role', 'doctor').maybeSingle(),

@@ -129,7 +129,7 @@ function shell(active, renderPage) {
       <div class="spacer"></div>
       ${techTeamHtml()}
       <div class="me">
-        <strong dir="auto">${esc(u.full_name)}</strong><span class="muted" dir="auto">${esc(u.title || t(u.role === 'admin' ? 'role.founder' : 'role.doctor'))}</span>
+        <div class="me-top">${avatarHtml(u, 'sm')}<span><strong dir="auto">${esc(u.full_name)}</strong><span class="muted" dir="auto">${esc(u.title || t(u.role === 'admin' ? 'role.founder' : 'role.doctor'))}</span></span></div>
         <div class="row"><button id="pw">${t('me.password')}</button><button id="out">${t('me.logout')}</button>${langButton()}<button id="install" hidden>${t('install.btn')}</button></div>
       </div>
       </div>
