@@ -106,7 +106,7 @@ function checkMapLink(raw, type) {
   return url;
 }
 /** A small "open in maps" link, only for https links. */
-const mapLinkHtml = url => (/^https:\/\//i.test(url || '') ? ` <a class="map-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">🗺 ${t('form.openMap')}</a>` : '');
+const mapLinkHtml = url => (/^https:\/\//i.test(url || '') ? ` <a class="map-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${icon('map')} ${t('form.openMap')}</a>` : '');
 
 function sessionPayload(b) {
   const s = {
@@ -299,7 +299,7 @@ function drawOutbox() {
   const list = readOutbox();
   if (!list.length) { slot.innerHTML = ''; return; }
   const bad = list.filter(x => x.error);
-  slot.innerHTML = `<div class="outbox-bar ${bad.length ? 'bad' : ''}" role="status"><span aria-hidden="true">${bad.length ? '⚠' : '📤'}</span>
+  slot.innerHTML = `<div class="outbox-bar ${bad.length ? 'bad' : ''}" role="status"><span aria-hidden="true">${icon(bad.length ? 'warn' : 'upload')}</span>
     <span><b>${t('outbox.waiting', { n: list.length })}</b><br><span class="small">${bad.length ? esc(bad[0].error) : t(navigator.onLine ? 'outbox.retrying' : 'outbox.offline')}</span></span>
     <button type="button" class="btn sm ghost" data-retry>${t('outbox.retry')}</button>${bad.length ? `<button type="button" class="btn sm ghost" data-drop>${t('outbox.drop')}</button>` : ''}</div>`;
   slot.querySelector('[data-retry]').onclick = () => { writeOutbox(readOutbox().map(({ error, ...x }) => x)); flushOutbox(); };
@@ -418,6 +418,45 @@ const icons = {
 // River waves in the logo's colors (light water, deep water, green bank).
 const waves = `<svg class="waves" viewBox="0 0 600 200" preserveAspectRatio="none" aria-hidden="true"><path d="M0 120c80-60 140 40 220-10s120-90 200-40 120 30 180-10v140H0Z" fill="#d6f0ea"/><path d="M0 150c90-40 150 30 240-5s130-60 210-20 100 20 150-5v80H0Z" fill="#9fdccf"/><path d="M0 172c90-30 160 22 250-4s140-44 220-14 90 14 130-2v48H0Z" fill="#12917f"/><path d="M0 70c100-60 160 60 260 0s140-70 220-30 90 20 120 0" fill="none" stroke="#9ccc84" stroke-width="3"/></svg>`;
 
+
+// ---------- icons ----------
+// One drawn icon set (stroke icons, 1em, colour follows the text) instead of emoji, which render differently on every phone.
+const ICONS = {
+  pin: '<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+  warn: '<path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
+  steth: '<path d="M6 3H5v5a5 5 0 0 0 10 0V3h-1"/><path d="M10 13v1a5 5 0 0 0 10 0v-2"/><circle cx="20" cy="10" r="2"/>',
+  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  map: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/>',
+  upload: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 20h14"/>',
+};
+const icon = name => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
+
+// ---------- labels for screen readers ----------
+// Forms are written as <label>Name</label><input>, which looks right but leaves the field without a name for
+// screen readers (and clicking the label doesn't focus the field). This links every such label to the field that
+// follows it, in pages and dialogs alike, as soon as they appear. A label that wraps its field is already fine; a
+// label above a group of buttons (session type) names that group instead. Dialogs are named by their title.
+const LABEL_CTL = 'input:not([type=hidden]), select, textarea';
+let labelSeq = 0;
+function linkLabels(root) {
+  if (!root?.querySelectorAll) return;
+  root.querySelectorAll('label:not([for])').forEach(l => {
+    if (l.querySelector(LABEL_CTL)) return;
+    for (let el = l.nextElementSibling; el && el.tagName !== 'LABEL'; el = el.nextElementSibling) {
+      const ctl = el.matches(LABEL_CTL) ? el : el.querySelector(LABEL_CTL);
+      const group = !ctl && (el.matches('.type-pick, .seg, [role=group]') ? el : el.querySelector('.type-pick, .seg'));
+      if (ctl) { ctl.id ||= 'nt-f' + (++labelSeq); l.htmlFor = ctl.id; return; }
+      if (group) { l.id ||= 'nt-l' + (++labelSeq); group.setAttribute('role', 'group'); group.setAttribute('aria-labelledby', l.id); return; }
+    }
+  });
+  root.querySelectorAll('[role=dialog]:not([aria-labelledby])').forEach(d => {
+    const h = d.querySelector('h1, h2'); if (!h) return;
+    h.id ||= 'nt-h' + (++labelSeq); d.setAttribute('aria-labelledby', h.id);
+  });
+}
+new MutationObserver(list => { for (const m of list) for (const n of m.addedNodes) if (n.nodeType === 1) linkLabels(n.parentElement || n); })
+  .observe(document.body, { childList: true, subtree: true });
 
 // ---------- dialogs ----------
 // A dialog on top of the page. Escape or a click outside closes only the top-most one;

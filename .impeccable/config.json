@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "menlo",
+        "createdAt": "2026-11-28T13:12:25.880Z",
+        "reason": "Claude: monospace fallback for the login-credentials box (.secret), real data not costume"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "consolas",
+        "createdAt": "2026-11-28T13:12:26.013Z",
+        "reason": "Claude: monospace fallback for error codes on the tech Errors tab (.err-msg)"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "tahoma",
+        "createdAt": "2026-11-28T13:12:26.139Z",
+        "reason": "Claude: email-safe Arabic fallback in notify-email HTML; email clients cannot load the portal's web fonts"
+      }
+    ]
+  }
+}

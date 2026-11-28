@@ -33,7 +33,7 @@ function columnChart(points, caption) {
       <div class="col ${p.current ? 'current' : ''}" title="${esc(p.title)}">
         <span class="v">${(all && p.value) || i === points.length - 1 || i === top ? fmtNum(p.value) : ''}</span>
         <span class="bar" style="height:${Math.max(p.value ? 3 : 0, (p.value / max) * 100)}%"></span>
-        <span class="x ${points.length > 6 && i % 3 && i !== points.length - 1 ? 'skip-phone' : ''}">${points.length > 14 && i % 5 && i !== points.length - 1 ? '' : esc(p.label)}</span>
+        <span class="x ${points.length > 6 && i !== points.length - 1 && (i % 3 || points.length - 1 - i < 3) ? 'skip-phone' : ''}">${points.length > 14 && i % 5 && i !== points.length - 1 ? '' : esc(p.label)}</span>
       </div>`).join('')}</div>
     <details class="as-table"><summary>${t('ov.showNumbers')}</summary>
       <table><tbody>${points.map(p => `<tr><td>${esc(p.title.split(':')[0])}</td><td>${fmtNum(p.value)}</td></tr>`).join('')}</tbody></table>
@@ -111,7 +111,7 @@ async function overviewPage(main) {
       <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn ghost" href="#/schedule">${t('ov.toSchedule')}</a><a class="btn" href="#/report">${t('ov.toReport')}</a></div>
     </div>
     ${nothingYet ? firstDayCard(doctors.length) : ''}
-    ${unclosed.length ? `<section class="card closing-card"><div class="card-head"><h2>⚠ ${t('ov.unclosed', { n: unclosed.length })}</h2></div>
+    ${unclosed.length ? `<section class="card closing-card"><div class="card-head"><h2>${icon('warn')} ${t('ov.unclosed', { n: unclosed.length })}</h2></div>
       <p class="muted small">${t('ov.unclosedHelp')}</p>
       <div class="table-wrap cards"><table><tbody>${unclosed.slice(0, 8).map(a => `<tr>
         <td class="c-date" style="white-space:nowrap">${fmtDay(a.appt_date, { weekday: 'short', day: 'numeric', month: 'short' })}<span class="muted small c-time">${esc(a.appt_time)}</span></td>
@@ -127,7 +127,7 @@ async function overviewPage(main) {
     <div class="ov-grid">
       <section class="card ov-wide"><h2 class="card-title">${t('ov.weekly')}</h2><p class="muted small">${t('ov.weeklySub')}</p>${columnChart(weeks, t('ov.weekly'))}</section>
       <section class="card"><h2 class="card-title">${t('ov.attention')}</h2><p class="muted small">${t('ov.attentionSub')}</p>
-        ${quiet.length ? `<ul class="alerts">${quiet.map(({ d, days }) => `<li><span class="alert-icon" aria-hidden="true">⚠</span><span><a href="#/doctors/${d.id}" dir="auto">${esc(d.full_name)}</a><br><span class="muted small">${days === null ? t('ov.never') : t('ov.daysAgo', { n: days })}</span></span>
+        ${quiet.length ? `<ul class="alerts">${quiet.map(({ d, days }) => `<li><span class="alert-icon" aria-hidden="true">${icon('warn')}</span><span><a href="#/doctors/${d.id}" dir="auto">${esc(d.full_name)}</a><br><span class="muted small">${days === null ? t('ov.never') : t('ov.daysAgo', { n: days })}</span></span>
           <button type="button" class="btn ghost sm" data-remind="${d.id}" data-days="${days ?? ''}">${t('remind.btn')}</button></li>`).join('')}</ul>`
           : active.length ? `<p class="ok-line">✓ ${t('ov.allActive')}</p>` : `<p class="muted small">${t('ov.noData')}</p>`}
       </section>

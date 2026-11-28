@@ -98,7 +98,7 @@ function bookVisitModal(onDone, { doctors, appt } = {}) {
       const full = n >= DAILY_LIMIT;
       note.className = 'load-note' + (full || clash ? ' warn' : n ? '' : ' free');
       note.innerHTML = `<b>${t('book.load', { n, limit: DAILY_LIMIT })}</b>${full ? ` · ${t('book.full')}` : ''}
-        ${clash ? `<br>⚠ ${t('book.clash', { time: esc(clash.appt_time), name: esc(clash.patient_name) })}` : ''}
+        ${clash ? `<br>${icon('warn')} ${t('book.clash', { time: esc(clash.appt_time), name: esc(clash.patient_name) })}` : ''}
         ${others.length ? `<div class="small">${others.map(a => `${esc(a.appt_time || '—')} <bdi>${esc(a.patient_name)}</bdi>`).join(' · ')}</div>` : ''}`;
     };
     ['doctor_id', 'session_date', 'session_time'].forEach(k => form.elements[k]?.addEventListener('change', checkLoad));

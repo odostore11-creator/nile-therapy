@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-28T15:00:00Z",
+  "title": "Design System: Nile Therapy Portal",
+  "extensions": {
+    "colorMeta": {
+      "brand": { "role": "primary", "displayName": "Nile Teal", "canonical": "#0f7d74", "tonalRamp": ["#063530", "#0a4f48", "#0d6a61", "#0f7d74", "#3f9a92", "#74b7b0", "#a9d4cf", "#dcefed"] },
+      "brand-ink": { "role": "primary", "displayName": "Deep River", "canonical": "#0b4f5c" },
+      "water": { "role": "primary", "displayName": "Shallow Water", "canonical": "#9fdccf" },
+      "coral": { "role": "secondary", "displayName": "Lotus Coral", "canonical": "#e0583f", "tonalRamp": ["#5c1f14", "#83301f", "#a63a26", "#e0583f", "#e8806c", "#f0a799", "#f7cdc4", "#fdece8"] },
+      "leaf": { "role": "tertiary", "displayName": "Leaf Green", "canonical": "#5fa84a", "tonalRamp": ["#1f4a1b", "#2f6b2a", "#438a37", "#5fa84a", "#82bc71", "#a6d098", "#cbe4c1", "#e8f4e2"] },
+      "roof": { "role": "tertiary", "displayName": "Old Roof Slate", "canonical": "#487878" },
+      "ink": { "role": "neutral", "displayName": "River Ink", "canonical": "#14303a" },
+      "muted": { "role": "neutral", "displayName": "Silt", "canonical": "#557078" },
+      "bg": { "role": "neutral", "displayName": "Mist", "canonical": "#f3f8f7" },
+      "line": { "role": "neutral", "displayName": "Reed Line", "canonical": "#dae8e4" },
+      "danger": { "role": "neutral", "displayName": "Warning Red", "canonical": "#b3372a" },
+      "whatsapp": { "role": "neutral", "displayName": "WhatsApp Green", "canonical": "#15803d" }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "Headline", "purpose": "Page titles, one per page." },
+      "title": { "displayName": "Title", "purpose": "Card and section titles." },
+      "body": { "displayName": "Body", "purpose": "All running text; 16px in phone form fields." },
+      "body-ar": { "displayName": "Body (Arabic)", "purpose": "Arabic interface text in Readex Pro." },
+      "label": { "displayName": "Label", "purpose": "Badges and table headers; never below 12px." }
+    },
+    "shadows": [
+      { "name": "ambient", "value": "0 1px 2px rgba(11, 79, 92, .05), 0 6px 18px rgba(11, 79, 92, .05)", "purpose": "Cards." },
+      { "name": "dialog", "value": "0 30px 80px rgba(15, 40, 66, .25)", "purpose": "Dialogs." }
+    ],
+    "motion": [
+      { "name": "page-in", "value": ".22s ease-out", "purpose": "Page content fades up 6px on arrival; off under reduced motion." },
+      { "name": "pop-in", "value": ".18s ease-out", "purpose": "Dialogs." }
+    ],
+    "breakpoints": [
+      { "name": "wide", "value": "1100px" }, { "name": "menu-collapses", "value": "980px" }, { "name": "tablet", "value": "700px" },
+      { "name": "phone", "value": "640px" }, { "name": "small", "value": "480px" }
+    ]
+  },
+  "components": [
+    { "name": "Primary Button", "kind": "button", "refersTo": "button-primary", "description": "Main action on a page or dialog.",
+      "html": "<button class=\"ds-btn\">Book a visit</button>",
+      "css": ".ds-btn { background: linear-gradient(135deg, #0f7d74, #14998a); color: #fff; border: 0; border-radius: 999px; padding: 10px 20px; font: 600 15px Outfit, system-ui, sans-serif; cursor: pointer; } .ds-btn:hover { background: linear-gradient(135deg, #0b6a62, #0f8679); } .ds-btn:focus-visible { outline: 2px solid #0f7d74; outline-offset: 2px; }" },
+    { "name": "Ghost Button", "kind": "button", "refersTo": "button-ghost", "description": "Secondary action.",
+      "html": "<button class=\"ds-btn-ghost\">Open the schedule</button>",
+      "css": ".ds-btn-ghost { background: #fff; color: #0f7d74; border: 1px solid #dae8e4; border-radius: 999px; padding: 10px 20px; font: 600 15px Outfit, system-ui, sans-serif; cursor: pointer; } .ds-btn-ghost:hover { background: #e3f6f1; } .ds-btn-ghost:focus-visible { outline: 2px solid #0f7d74; outline-offset: 2px; }" },
+    { "name": "Field", "kind": "input", "refersTo": "input", "description": "Text field with its label.",
+      "html": "<label class=\"ds-field\"><span>Patient name</span><input placeholder=\"Full name\"></label>",
+      "css": ".ds-field { display: grid; gap: 6px; font: 600 13px Outfit, system-ui, sans-serif; color: #14303a; } .ds-field input { border: 1px solid #dae8e4; border-radius: 10px; padding: 10px 12px; font: 400 15px Outfit, system-ui, sans-serif; background: #fff; } .ds-field input:focus { outline: none; border-color: #0f7d74; box-shadow: 0 0 0 3px rgba(15, 125, 116, .16); }" },
+    { "name": "Badges", "kind": "chip", "refersTo": "pill", "description": "Session type and status.",
+      "html": "<span class=\"ds-pill home\">Home visit</span> <span class=\"ds-pill\">Clinic</span> <span class=\"ds-pill online\">Online</span>",
+      "css": ".ds-pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font: 600 12px Outfit, system-ui, sans-serif; background: #e8f4e2; color: #2f6b2a; } .ds-pill.home { background: #fdece8; color: #a63a26; } .ds-pill.online { background: #e3f6f1; color: #0b4f5c; }" },
+    { "name": "Card", "kind": "card", "refersTo": "card", "description": "White work surface.",
+      "html": "<div class=\"ds-card\"><h3>Sessions this week</h3><p>12</p></div>",
+      "css": ".ds-card { background: #fff; border: 1px solid #dae8e4; border-radius: 14px; padding: 22px; box-shadow: 0 1px 2px rgba(11,79,92,.05), 0 6px 18px rgba(11,79,92,.05); font: 400 15px Outfit, system-ui, sans-serif; color: #14303a; } .ds-card h3 { margin: 0 0 6px; color: #0b4f5c; font-size: 15px; } .ds-card p { margin: 0; font-size: 28px; font-weight: 700; color: #0b4f5c; }" },
+    { "name": "Side menu item", "kind": "nav", "refersTo": "nav-item-active", "description": "Item in the dark river menu; active state tinted.",
+      "html": "<nav class=\"ds-nav\"><a href=\"#\">Overview</a><a class=\"on\" href=\"#\">Doctors</a></nav>",
+      "css": ".ds-nav { background: linear-gradient(165deg, #083e49, #0b4f5c 35%, #0f7d74 85%); padding: 12px; border-radius: 14px; display: grid; gap: 4px; } .ds-nav a { color: #d6e4f2; text-decoration: none; padding: 10px 12px; border-radius: 10px; font: 500 15px Outfit, system-ui, sans-serif; } .ds-nav a:hover { background: rgba(255,255,255,.07); } .ds-nav a.on { background: rgba(159,220,207,.2); color: #fff; font-weight: 600; } .ds-nav a:focus-visible { outline: 2px solid #9fdccf; outline-offset: 2px; }" }
+  ],
+  "narrative": {
+    "northStar": "The Calm River Clinic",
+    "overview": "The portal should feel like a tidy, well-lit clinic: white work surfaces on a pale water-green ground, deep river teal for the things you act on, and the Nile running through it as soft teal gradients and the lotus watermark. Colour is used richly but with meaning: teal for action and data, coral for home visits and attention, leaf green for done, slate for the fourth category. Arabic and English are equals.",
+    "keyCharacteristics": ["White cards (14px corners, soft two-layer shadow) on a pale water-green page.", "Pill-shaped buttons and badges; deep teal gradient for primary actions.", "Dark river-teal side menu with the lotus watermark.", "Colour-coded categories using the full brand palette.", "Drawn stroke icons (1em, follow text colour); no emoji as icons."],
+    "rules": [
+      { "name": "The Red Means Trouble Rule", "body": "Danger red appears only for a real problem (an error, a delete, a patient nobody took). Never as decoration.", "section": "colors" },
+      { "name": "The Colour Has a Job Rule", "body": "Every colour on a screen names a category or a state. Use the full palette to tell kinds apart, and keep the same colour for the same kind everywhere (home visit coral, clinic green, online teal).", "section": "colors" },
+      { "name": "The Readable Badge Rule", "body": "Text on a tinted badge uses the palette's ink shade (brand-ink, coral-ink, leaf-ink), never the mid tone.", "section": "colors" },
+      { "name": "The 12px Floor Rule", "body": "Nothing a user needs to read is smaller than 12px (11px only for a two-letter initials tag).", "section": "typography" }
+    ],
+    "dos": ["Do use drawn stroke icons from the portal's icon() set (1em, current colour).", "Do give every category its own palette colour and reuse it everywhere.", "Do keep badge text in the ink shades so it passes 4.5:1.", "Do check every screen in Arabic (right-to-left) and English, at 375px and on a laptop."],
+    "donts": ["Don't use emoji as icons.", "Don't put a coloured stripe down one side of a card or chip.", "Don't use red for anything but a real problem.", "Don't go below 12px for readable text."]
+  }
+}

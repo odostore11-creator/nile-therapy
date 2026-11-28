@@ -157,7 +157,7 @@ async function partnerReportPage(main) {
         <div><dt>${t('ref.sessions')}</dt><dd>${Number(r.sessions || 0)}</dd></div>
         <div><dt>${t('ref.lastSession')}</dt><dd>${r.last_session ? fmtDate(r.last_session) : '—'}</dd></div>
       </dl>
-      ${r.pdf_path ? `<button type="button" class="link" data-pdf="${esc(r.pdf_path)}">📄 ${esc(r.pdf_name || t('ref.pdf'))}</button>` : ''}
+      ${r.pdf_path ? `<button type="button" class="link" data-pdf="${esc(r.pdf_path)}">${icon('file')} ${esc(r.pdf_name || t('ref.pdf'))}</button>` : ''}
     </article>`).join('') : `<div class="card empty">${t('ref.noneMine')}</div>`;
   list.querySelectorAll('[data-pdf]').forEach(b => b.onclick = () => openPdf(b.dataset.pdf));
 }
@@ -309,7 +309,7 @@ async function referralsPage(main) {
         ${r.notes ? `<p class="ref-notes" dir="auto"><b>${t('ref.f.notes')}:</b> ${esc(r.notes)}</p>` : ''}
         ${r.founder_note ? `<p class="muted small" dir="auto">${t('ref.fNote')}: ${esc(r.founder_note)}</p>` : ''}
         <div class="row ref-actions">
-          ${r.pdf_path ? `<button type="button" class="btn ghost sm" data-pdf="${esc(r.pdf_path)}">📄 ${t('ref.openPdf')}</button>` : ''}
+          ${r.pdf_path ? `<button type="button" class="btn ghost sm" data-pdf="${esc(r.pdf_path)}">${icon('file')} ${t('ref.openPdf')}</button>` : ''}
           ${r.status === 'new' || r.status === 'assigned' ? `<button type="button" class="btn sm" data-assign="${r.id}">${t(r.status === 'new' ? 'ref.assign' : 'ref.reassign')}</button>` : ''}
           ${r.status === 'assigned' ? `<button type="button" class="btn ghost sm" data-close-ref="${r.id}">${t('ref.markDone')}</button>` : ''}
           ${r.status === 'new' ? `<button type="button" class="btn ghost sm" data-decline="${r.id}">${t('ref.decline')}</button>` : ''}

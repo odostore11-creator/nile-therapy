@@ -107,12 +107,12 @@ async function inboxPage(main) {
         <div class="ib-top">${src}<span class="muted small">${t('inbox.waited', { t: ago(at) })}</span></div>
         <h3 dir="auto">${esc(r.patient_name)}</h3>
         <p class="ib-why">${esc(why)}</p>
-        ${place ? `<p class="muted small" dir="auto">📍 ${esc(place)}</p>` : ''}
-        ${r.condition ? `<p class="small" dir="auto">🩺 ${esc(r.condition)}</p>` : ''}
+        ${place ? `<p class="muted small" dir="auto">${icon('pin')} ${esc(place)}</p>` : ''}
+        ${r.condition ? `<p class="small" dir="auto">${icon('steth')} ${esc(r.condition)}</p>` : ''}
         ${r.phone ? `<p class="small"><a href="tel:${esc(r.phone)}" dir="ltr">${esc(r.phone)}</a>${waNumber(r.phone) ? ` · <a href="https://wa.me/${waNumber(r.phone)}" target="_blank" rel="noopener">${t('req.whatsapp')}</a>` : ''}</p>` : ''}
         ${r.email ? `<p class="small"><a href="mailto:${esc(r.email)}" dir="ltr">${esc(r.email)}</a></p>` : ''}
         <div class="row ib-actions"><button type="button" class="btn sm" data-assign>${t('inbox.assign')}</button>
-          ${kind === 'ref' && r.pdf_path ? `<button type="button" class="btn ghost sm" data-pdf>📄 ${t('ref.openPdf')}</button>` : ''}
+          ${kind === 'ref' && r.pdf_path ? `<button type="button" class="btn ghost sm" data-pdf>${icon('file')} ${t('ref.openPdf')}</button>` : ''}
           ${kind === 'ref' ? `<button type="button" class="btn ghost sm" data-decline>${t('ref.decline')}</button>` : `<button type="button" class="btn ghost sm" data-cancel>${t('inbox.cancel')}</button>`}</div>
       </article>`;
     };
@@ -206,7 +206,7 @@ async function moneyPage(main) {
         <label>${t('fee.price')}<input name="price" type="number" min="0" inputmode="numeric" value="${p.price ?? ''}"></label>
         <label>${t('fee.commission')}<input name="commission" type="number" min="0" inputmode="numeric" value="${p.commission ?? ''}"></label>
         <button class="btn sm">${t('common.save')}</button><button type="button" class="btn ghost sm" data-remove>${t('common.delete')}</button></form>`).join('')}
-      ${free.length ? `<div class="fee-add"><select data-add><option value="">${t('money.addDoctor')}</option>${free.map(d => `<option value="${d.id}">${esc(d.full_name)}</option>`).join('')}</select></div>` : ''}
+      ${free.length ? `<div class="fee-add"><select data-add aria-label="${esc(t('money.addDoctor'))}"><option value="">${t('money.addDoctor')}</option>${free.map(d => `<option value="${d.id}">${esc(d.full_name)}</option>`).join('')}</select></div>` : ''}
       <p class="error" role="alert"></p>`;
     const err = el.querySelector('.error');
     const num = v => { const s = String(v ?? '').trim(); if (!s) return null; const n = Number(s); if (!Number.isInteger(n) || n < 0 || n > 1000000) throw new Error(t('err.fee')); return n; };

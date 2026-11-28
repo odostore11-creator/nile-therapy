@@ -28,7 +28,7 @@ async function patientsPage(main) {
         <td class="c-doctor small" dir="auto">${(st.doctor_ids || []).map(id => esc(names.get(id) || '')).filter(Boolean).join('، ')}</td>
         <td class="c-edit"><button type="button" class="btn ghost sm" data-p="${p.id}">${t('common.edit')}</button></td></tr>`).join('')}</tbody></table></div>
       ${rows.length > 300 ? `<p class="muted small" style="padding:8px">${t('pat.more', { n: rows.length - 300 })}</p>` : ''}</div>`
-      : `<div class="card empty friendly"><span class="big" aria-hidden="true">🩺</span><p>${t(q ? 'sessions.noMatch' : 'pat.none')}</p></div>`;
+      : `<div class="card empty friendly"><span class="big" aria-hidden="true">${icon('steth')}</span><p>${t(q ? 'sessions.noMatch' : 'pat.none')}</p></div>`;
     main.querySelectorAll('[data-p]').forEach(b => b.onclick = () => patientModal(patients.find(p => p.id == b.dataset.p), stats.get(+b.dataset.p), patients, load));
   };
   const load = async () => {

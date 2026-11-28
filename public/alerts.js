@@ -56,7 +56,7 @@ function drawAlerts() {
     ? `<a class="alert-bar info" href="#/requests" role="status"><span class="alert-ico" aria-hidden="true">🔔</span>
         <span><b>${t('alert.doctor', { n })}</b><br><span class="small">${names}${items[0]?.km != null ? ` · ${t('open.km', { km: items[0].km })}` : ''}</span></span>
         <span class="btn sm">${t('alert.doctorBtn')}</span></a>`
-    : `<a class="alert-bar danger" href="#/coverage" role="alert"><span class="alert-ico" aria-hidden="true">⚠</span>
+    : `<a class="alert-bar danger" href="#/coverage" role="alert"><span class="alert-ico" aria-hidden="true">${icon('warn')}</span>
         <span><b>${t('alert.founders', { n })}</b><br><span class="small">${names}</span></span>
         <span class="btn sm btn-red">${t('alert.foundersBtn')}</span></a>`;
 }

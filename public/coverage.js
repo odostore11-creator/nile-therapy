@@ -121,7 +121,7 @@ function requestSummary(r, names) {
   const when = `${fmtDay(r.preferred_date, { weekday: 'short', day: 'numeric', month: 'short' })}${r.preferred_time ? ' · ' + esc(r.preferred_time.slice(0, 5)) : ''}`;
   const st = requestState(r);
   const status = st === 'done' ? `✓ ${t('req.st.' + r.status, { name: `<bdi>${esc(names.get(r.assigned_doctor_id) || '?')}</bdi>` })}`
-    : st === 'founders' ? `⚠ ${t({ out_of_area: 'req.st.outOfArea', visit_cancelled: 'req.st.visitCancelled', no_location: 'req.st.noLocation' }[r.reason] || 'req.st.overdue')}`
+    : st === 'founders' ? `${icon('warn')} ${t({ out_of_area: 'req.st.outOfArea', visit_cancelled: 'req.st.visitCancelled', no_location: 'req.st.noLocation' }[r.reason] || 'req.st.overdue')}`
     : st === 'waiting' ? `⏳ ${t('req.st.waiting', { n: minutesLeft(r) })}` : `✕ ${t('req.st.cancelled')}`;
   return { when, status, st };
 }
@@ -206,7 +206,7 @@ async function coveragePage(main) {
       return `<div class="req-row ${st}"><div><b dir="auto">${esc(r.patient_name)}</b> ${r.source === 'website' ? `<span class="pill web">${t('req.fromWebsite')}</span>` : ''} <span class="muted small">${when}</span>
           <div class="small">${status}${r.nearest_km != null && st !== 'done' ? ` · ${t('req.nearest', { name: `<bdi>${esc(names.get(r.nearest_doctor_id) || '?')}</bdi>`, km: r.nearest_km })}` : ''}</div>
           ${r.address ? `<div class="muted small" dir="auto">${esc(r.address)}</div>` : ''}${extra ? `<div class="muted small" dir="auto">${extra}</div>` : ''}
-          ${r.condition ? `<div class="small" dir="auto">🩺 ${esc(r.condition)}</div>` : ''}${r.phone ? `<div class="muted small"><a href="tel:${esc(r.phone)}" dir="ltr">${esc(r.phone)}</a> · <a href="https://wa.me/${waNumber(r.phone) || ''}" target="_blank" rel="noopener">${t('req.whatsapp')}</a></div>` : ''}${r.email ? `<div class="muted small"><a href="mailto:${esc(r.email)}" dir="ltr">${esc(r.email)}</a></div>` : ''}</div>
+          ${r.condition ? `<div class="small" dir="auto">${icon('steth')} ${esc(r.condition)}</div>` : ''}${r.phone ? `<div class="muted small"><a href="tel:${esc(r.phone)}" dir="ltr">${esc(r.phone)}</a> · <a href="https://wa.me/${waNumber(r.phone) || ''}" target="_blank" rel="noopener">${t('req.whatsapp')}</a></div>` : ''}${r.email ? `<div class="muted small"><a href="mailto:${esc(r.email)}" dir="ltr">${esc(r.email)}</a></div>` : ''}</div>
         <div class="req-actions">${hasPin(r) ? `<button type="button" class="btn ghost sm" data-show="${r.id}">${t('cov.showOnMap')}</button>` : `<span class="muted small">${t('req.noPin')}</span>`}
           ${st === 'founders' || st === 'waiting' ? `<button type="button" class="btn sm" data-assign="${r.id}">${t('cov.assign')}</button><button type="button" class="btn danger sm" data-cancelreq="${r.id}">${t('common.cancel')}</button>` : ''}
           ${st === 'done' ? `<button type="button" class="btn ghost sm" data-assign="${r.id}">${t('cov.reassign')}</button>` : ''}</div></div>`;
@@ -464,7 +464,7 @@ async function openPatientsPage(main) {
       <div>${fmtDay(r.preferred_date, { weekday: 'long', day: 'numeric', month: 'long' })}${r.preferred_time ? ' · ' + esc(r.preferred_time.slice(0, 5)) : ''}</div>
       ${r.address ? `<div class="muted small" dir="auto">${esc(r.address)}</div>` : ''}
       <div class="small">${mapLinkHtml(`https://www.google.com/maps?q=${(+r.lat).toFixed(6)},${(+r.lng).toFixed(6)}`)}</div>
-      <div class="small">${r.km == null ? t('open.noArea') : Number(r.km) === 0 ? `📍 ${t('open.inside')}` : `📍 ${t('open.km', { km: r.km })}`}
+      <div class="small">${r.km == null ? t('open.noArea') : Number(r.km) === 0 ? `${icon('pin')} ${t('open.inside')}` : `${icon('pin')} ${t('open.km', { km: r.km })}`}
         · <span class="muted">⏳ ${t('open.left', { n: minutesLeft(r) })}</span></div>
       <button type="button" class="btn block" data-take="${r.id}">${t('open.take')}</button>
     </div>`).join('') : `<div class="card empty friendly"><span class="big" aria-hidden="true">🙌</span><p>${t('open.none')}</p></div>`;

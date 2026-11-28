@@ -16,7 +16,7 @@ function sessionFormHtml(s = {}, { doctors, future = false, fees = false } = {})
     <div class="field"><label>${t('form.where')}</label><input name="location" dir="auto" required value="${esc(s.location)}" placeholder="${esc(t('form.where.ph'))}"></div>
     <div class="field map-link-field"><label>${t('form.mapLink')} <span class="muted map-link-opt">${t(state.user?.role === 'doctor' && type !== 'Online' ? 'form.mapLink.req' : 'form.optional')}</span></label>
       <div class="search-row"><input name="location_url" type="url" dir="ltr" inputmode="url" autocomplete="off" value="${esc(s.location_url)}" placeholder="https://maps.app.goo.gl/…">
-        <button type="button" class="btn ghost here-btn" data-here>📍 ${t('form.useHere')}</button></div>
+        <button type="button" class="btn ghost here-btn" data-here>${icon('pin')} ${t('form.useHere')}</button></div>
       <p class="muted small">${t('form.mapLink.help')}</p></div>
     <div class="grid3">
       <div class="field"><label>${t('form.date')}</label><input name="session_date" type="date" required value="${esc(s.session_date || today())}" ${future ? '' : `max="${today()}"`}></div>
@@ -24,7 +24,7 @@ function sessionFormHtml(s = {}, { doctors, future = false, fees = false } = {})
       <div class="field"><label>${t('form.minutes')}</label><input name="duration_min" type="number" min="0" max="600" step="5" value="${esc(s.duration_min ?? 45)}"></div>
     </div>
     <div class="field"><label>${t('form.notes')} <span class="muted">${t('form.optional')}</span></label><textarea name="notes" dir="auto" placeholder="${esc(t('form.notes.ph'))}">${esc(s.notes)}</textarea></div>
-    ${fees && isFounder() ? `<fieldset class="fee-box"><legend>🔒 ${t('fee.founderOnly')}</legend><div class="grid2">
+    ${fees && isFounder() ? `<fieldset class="fee-box"><legend>${icon('lock')} ${t('fee.founderOnly')}</legend><div class="grid2">
       <div class="field"><label>${t('fee.price')}</label><input name="fee_price" type="number" min="0" max="1000000" step="1" inputmode="numeric" dir="ltr" value="${esc(s.price ?? '')}"></div>
       <div class="field"><label>${t('fee.commission')}</label><input name="fee_commission" type="number" min="0" max="1000000" step="1" inputmode="numeric" dir="ltr" value="${esc(s.commission ?? '')}"></div>
     </div></fieldset>` : ''}`;
@@ -110,9 +110,9 @@ function wireMapLink(root) {
     btn.disabled = true; btn.textContent = t('form.locating');
     navigator.geolocation.getCurrentPosition(p => {
       root.querySelector('[name=location_url]').value = `https://www.google.com/maps?q=${p.coords.latitude.toFixed(6)},${p.coords.longitude.toFixed(6)}`;
-      btn.disabled = false; btn.textContent = '📍 ' + t('form.useHere'); toast(t('form.located'));
+      btn.disabled = false; btn.innerHTML = icon('pin') + ' ' + esc(t('form.useHere')); toast(t('form.located'));
     }, err => {
-      btn.disabled = false; btn.textContent = '📍 ' + t('form.useHere');
+      btn.disabled = false; btn.innerHTML = icon('pin') + ' ' + esc(t('form.useHere'));
       toast(t(err.code === 1 ? 'form.locDenied' : 'form.locFailed'));
     }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
   };
@@ -197,7 +197,7 @@ async function doctorPortal(main) {
     const open = visits.filter(a => a.status === 'planned' && a.appt_date < td);
     const now = visits.filter(a => a.appt_date === td);
     const soon = visits.filter(a => a.status === 'planned' && a.appt_date > td);
-    $('closing').innerHTML = open.length ? `<section class="card closing-card"><div class="card-head"><h2>⚠ ${t('today.closing', { n: open.length })}</h2></div>
+    $('closing').innerHTML = open.length ? `<section class="card closing-card"><div class="card-head"><h2>${icon('warn')} ${t('today.closing', { n: open.length })}</h2></div>
       <p class="muted small">${t('today.closingHelp')}</p>${open.map(a => visitRow(a, { showDate: true })).join('')}</section>` : '';
     $('todaylist').innerHTML = now.length ? now.map(a => visitRow(a)).join('')
       : `<div class="empty friendly small-empty"><span class="big" aria-hidden="true">☀️</span><p>${t('today.none')}</p></div>`;

@@ -98,7 +98,7 @@ function eventFormHtml(e = {}, isNew = true) {
       <div class="field"><label>${t('form.where')} <span class="muted">${t('form.optional')}</span></label><input name="location" dir="auto" maxlength="300" value="${esc(e.location)}" placeholder="${esc(t('cal.where.ph'))}"></div>
       <div class="field"><label>${t('form.mapLink')} <span class="muted">${t('form.optional')}</span></label>
         <div class="search-row"><input name="location_url" type="url" dir="ltr" inputmode="url" autocomplete="off" value="${esc(e.location_url)}" placeholder="https://maps.app.goo.gl/…">
-        <button type="button" class="btn ghost here-btn" data-here>📍 ${t('form.useHere')}</button></div></div>
+        <button type="button" class="btn ghost here-btn" data-here>${icon('pin')} ${t('form.useHere')}</button></div></div>
     </div>
     <div class="field ev-price"><label>${t('fee.price')} <span class="muted">${t('form.optional')}</span></label><input name="price" type="number" min="0" max="1000000" step="1" inputmode="numeric" dir="ltr" value="${esc(e.price ?? '')}"></div>
     <div class="field"><label>${t('form.notes')} <span class="muted">${t('form.optional')}</span></label><textarea name="notes" dir="auto" maxlength="4000">${esc(e.notes)}</textarea></div>
