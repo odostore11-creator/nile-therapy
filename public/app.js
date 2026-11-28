@@ -4,7 +4,7 @@
 
 // ---------- routing ----------
 function route() { return (location.hash.replace(/^#\/?/, '') || '').split('/'); }
-window.addEventListener('hashchange', render);
+window.addEventListener('hashchange', () => { window.scrollTo(0, 0); render(); }); // a new page starts at the top
 
 async function boot() {
   try { state.user = await loadMe(); } catch { state.user = null; }

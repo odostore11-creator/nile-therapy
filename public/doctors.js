@@ -30,6 +30,14 @@ function showCredentials(title, { username, password }, intro = t('creds.intro')
   });
 }
 
+// Working hours as two short lines ("Sat–Thu" / "10:00 AM – 10:00 PM") so they never break mid-time on a narrow card.
+function hoursHtml(v) {
+  if (!v) return '';
+  const [days, ...rest] = String(v).split(' · ');
+  return `<div class="doc-hours" title="${esc(t('doc.hours'))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+    <span><bdi dir="ltr" class="doc-days">${esc(days)}</bdi>${rest.length ? `<bdi dir="ltr" class="doc-time">${esc(rest.join(' · '))}</bdi>` : ''}</span></div>`;
+}
+
 // Call + WhatsApp buttons for a doctor's phone ('' when there is no usable number).
 function contactButtons(name, phone) {
   const num = waNumber(phone);
@@ -52,7 +60,7 @@ async function doctorsPage(main) {
         <div class="doc-top">${avatarHtml(d)}
           <div><h3 dir="auto"><a class="doc-link" href="#/doctors/${d.id}">${esc(d.full_name)}</a></h3><div class="muted small" dir="auto">${esc(d.specialty || d.title)}</div></div></div>
         <div class="muted small" style="margin-bottom:12px"><span dir="auto">${esc(d.area || '—')}</span> ${d.active ? '' : `<span class="pill off">${t('doctors.inactive')}</span>`}
-          ${d.availability ? `<div class="doc-hours" title="${esc(t('doc.hours'))}">🕘 <bdi dir="ltr">${esc(d.availability)}</bdi></div>` : ''}</div>
+          ${hoursHtml(d.availability)}</div>
         <div class="doc-nums"><div><b>${d.stats.total}</b><span>${t('doctors.n.sessions')}</span></div><div><b>${d.stats.this_month || 0}</b><span>${t('doctors.n.month')}</span></div><div><b>${d.stats.patients}</b><span>${t('doctors.n.patients')}</span></div></div>
         ${d.phone ? `<div class="doc-phone"><bdi dir="ltr" class="muted small">${esc(d.phone)}</bdi>${contactButtons(d.full_name, d.phone)}</div>` : ''}
       </div>`).join('') : `<div class="card empty">${t('doctors.none')}</div>`;
