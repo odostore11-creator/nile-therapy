@@ -86,18 +86,9 @@ export function serve(handler: (req: Request, body: Record<string, unknown>) => 
 
 export const str = (v: unknown, max = 500) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
-// Easy to read and type on a phone, but not guessable from the person's name: Word + 3 digits + word ("Cedar583moon").
-const PW_WORDS = ('amber apple aqua basil beach berry birch bloom brave bread breeze brick brook cedar chalk cherry cliff cloud ' +
-  'clover coast coral cotton crane creek crown daisy dawn delta desert dove dune eagle earth ember falcon fern field flame ' +
-  'flint forest frost garden ginger glade globe grain grape grove harbor hazel honey island ivory jade jasmine juniper ' +
-  'kite lake lemon light lily linen lotus maple marble meadow melon mint misty moon mango north oasis ocean olive orbit ' +
-  'orchid palm pearl pebble pepper petal pine planet plum pond poppy prism quartz rain raven reef ridge river robin rose ' +
-  'saffron sage sail sand silver sky slate snow solar spark spring spruce star stone storm summer sun swan tiger tulip ' +
-  'valley velvet violet wave willow wind winter wood').split(' ');
+// Short and normal-looking, easy to type on a phone: word + '#' + 3 digits ("cedar#482"). Not based on the person's name.
+const PW_WORDS = 'amber basil beach birch brook cedar cliff cloud coral crane delta dune eagle fern flame frost grove hazel honey jade kite lake lemon lily lotus maple mint moon north oasis ocean olive palm pearl pine plum pond rain reef river rose sage sand sky snow star stone sun swan tiger tulip wave wind wood'.split(' ');
 function rnd(n: number) { const b = new Uint32Array(1); crypto.getRandomValues(b); return b[0] % n; }
 export function randomPassword(): string {
-  const a = PW_WORDS[rnd(PW_WORDS.length)];
-  let b = PW_WORDS[rnd(PW_WORDS.length)];
-  while (b === a) b = PW_WORDS[rnd(PW_WORDS.length)];
-  return a[0].toUpperCase() + a.slice(1) + String(100 + rnd(900)) + b;
+  return PW_WORDS[rnd(PW_WORDS.length)] + '#' + String(100 + rnd(900));
 }
