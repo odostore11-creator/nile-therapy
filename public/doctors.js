@@ -18,6 +18,7 @@ function doctorFormHtml(d = {}) {
       <div class="field"><label>${t('doc.phone')}</label><input name="phone" dir="ltr" value="${esc(d.phone)}" placeholder="01x xxxx xxxx"></div>
       <div class="field"><label>${t('doc.area')}</label><input name="area" dir="auto" value="${esc(d.area)}" placeholder="${esc(t('doc.area.ph'))}"></div>
     </div>
+    <div class="field"><label>${t('doc.hours')}</label><input name="availability" dir="ltr" maxlength="120" value="${esc(d.availability || '')}" placeholder="Sat–Thu · 10:00 AM – 10:00 PM"></div>
     <div class="field"><label>${t('doc.about')}</label><textarea name="bio" dir="auto">${esc(d.bio)}</textarea></div>`;
 }
 function showCredentials(title, { username, password }, intro = t('creds.intro')) {
@@ -48,9 +49,10 @@ async function doctorsPage(main) {
     catch (err) { main.querySelector('#grid').innerHTML = `<div class="card empty">${esc(err.message)}</div>`; return; }
     main.querySelector('#grid').innerHTML = doctors.length ? doctors.map(d => `
       <div class="card doc">
-        <div class="doc-top"><div class="avatar">${esc(initials(d.full_name))}</div>
+        <div class="doc-top">${avatarHtml(d)}
           <div><h3 dir="auto"><a class="doc-link" href="#/doctors/${d.id}">${esc(d.full_name)}</a></h3><div class="muted small" dir="auto">${esc(d.specialty || d.title)}</div></div></div>
-        <div class="muted small" style="margin-bottom:12px"><span dir="auto">${esc(d.area || '—')}</span> ${d.active ? '' : `<span class="pill off">${t('doctors.inactive')}</span>`}</div>
+        <div class="muted small" style="margin-bottom:12px"><span dir="auto">${esc(d.area || '—')}</span> ${d.active ? '' : `<span class="pill off">${t('doctors.inactive')}</span>`}
+          ${d.availability ? `<div class="doc-hours" title="${esc(t('doc.hours'))}">🕘 <bdi dir="ltr">${esc(d.availability)}</bdi></div>` : ''}</div>
         <div class="doc-nums"><div><b>${d.stats.total}</b><span>${t('doctors.n.sessions')}</span></div><div><b>${d.stats.this_month || 0}</b><span>${t('doctors.n.month')}</span></div><div><b>${d.stats.patients}</b><span>${t('doctors.n.patients')}</span></div></div>
         ${d.phone ? `<div class="doc-phone"><bdi dir="ltr" class="muted small">${esc(d.phone)}</bdi>${contactButtons(d.full_name, d.phone)}</div>` : ''}
       </div>`).join('') : `<div class="card empty">${t('doctors.none')}</div>`;
@@ -75,13 +77,14 @@ async function doctorProfile(main, id) {
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost" id="remind">${t('remind.profileBtn')}</button><button class="btn ghost" id="reset">${t('profile.reset')}</button><button class="btn" id="edit">${t('profile.edit')}</button></div></div>
       <div class="profile">
         <aside class="card">
-          <div class="avatar lg">${esc(initials(d.full_name))}</div>
+          ${avatarHtml(d, 'lg')}
           <h2 style="margin-top:14px" dir="auto">${esc(d.full_name)}</h2>
           <div class="muted"><span dir="auto">${esc(d.title)}</span> ${d.active ? '' : `<span class="pill off">${t('doctors.inactive')}</span>`}</div>
           <dl class="kv">
             <dt>${t('doc.username')}</dt><dd><bdi dir="ltr">@${esc(d.username)}</bdi></dd>
             <dt>${t('doc.specialty')}</dt><dd dir="auto">${esc(d.specialty || '—')}</dd>
             <dt>${t('doc.area')}</dt><dd dir="auto">${esc(d.area || '—')}</dd>
+            <dt>${t('doc.hours')}</dt><dd><bdi dir="ltr">${esc(d.availability || '—')}</bdi></dd>
             <dt>${t('doc.phone')}</dt><dd><bdi dir="ltr">${esc(d.phone || '—')}</bdi>${contactButtons(d.full_name, d.phone)}</dd>
             <dt>${t('profile.joined')}</dt><dd>${fmtDate(d.created_at.slice(0, 10))}</dd>
             <dt>${t('profile.last')}</dt><dd>${fmtDate(d.stats.last_session)}</dd>

@@ -12,7 +12,7 @@ const sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, {
 });
 const MODELS = ['claude-sonnet-5-5', 'claude-opus-5-5'];
 const SESSION_TYPES = ['Home visit', 'Clinic', 'Online']; // stored in English, shown translated
-const state = { user: null, ai: { default: 'claude-sonnet-5-5', connected: null }, loginRole: 'admin', sessionsView: 'grouped' };
+const state = { user: null, ai: { default: 'claude-sonnet-5-5', connected: null }, sessionsView: 'grouped' };
 
 // ---------- helpers ----------
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -369,7 +369,7 @@ async function getDoctor(id, from = null) {
 async function updateDoctor(id, b) {
   const rows = check(await sb.from('profiles').update({
     full_name: String(b.full_name || '').trim(), title: String(b.title || '').trim(), specialty: String(b.specialty || '').trim(),
-    phone: String(b.phone || '').trim(), area: String(b.area || '').trim(), bio: String(b.bio || '').trim(), active: !!b.active,
+    phone: String(b.phone || '').trim(), area: String(b.area || '').trim(), availability: String(b.availability || '').trim().slice(0, 120), bio: String(b.bio || '').trim(), active: !!b.active,
   }).eq('id', id).eq('role', 'doctor').select('id'));
   if (!rows.length) throw new Error(t('err.notAllowed'));
 }

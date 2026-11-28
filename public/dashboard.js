@@ -22,14 +22,16 @@ function delta(now, before, label = t('ov.vsBefore')) {
 }
 const kpi = (n, label, extra = '') => `<div class="stat"><div class="n">${n}</div><div class="l">${label}</div>${extra ? `<div class="kpi-extra">${extra}</div>` : ''}</div>`;
 
-// Vertical bars over time. Labels only on the latest and the highest bar; every bar has a tooltip.
+// Vertical bars over time. Up to 14 bars every bar shows its number; with more (daily charts) only the latest and the
+// highest do, so the numbers don't crowd. Every bar has a tooltip.
 function columnChart(points, caption) {
   const max = Math.max(1, ...points.map(p => p.value));
   const top = points.reduce((a, p, i) => (p.value > points[a].value ? i : a), 0);
+  const all = points.length <= 14;
   return `<figure class="colchart-wrap">
     <div class="colchart" role="img" aria-label="${esc(caption)}">${points.map((p, i) => `
       <div class="col ${p.current ? 'current' : ''}" title="${esc(p.title)}">
-        <span class="v">${i === points.length - 1 || i === top ? fmtNum(p.value) : ''}</span>
+        <span class="v">${(all && p.value) || i === points.length - 1 || i === top ? fmtNum(p.value) : ''}</span>
         <span class="bar" style="height:${Math.max(p.value ? 3 : 0, (p.value / max) * 100)}%"></span>
         <span class="x ${points.length > 6 && i % 3 && i !== points.length - 1 ? 'skip-phone' : ''}">${points.length > 14 && i % 5 && i !== points.length - 1 ? '' : esc(p.label)}</span>
       </div>`).join('')}</div>

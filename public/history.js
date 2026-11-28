@@ -1,6 +1,7 @@
 'use strict';
 // Change history (founders only): every add / edit / delete of a session, visit or doctor profile,
-// recorded automatically by the database. Anything deleted can be put back with "Restore".
+// recorded automatically by the database. Anything deleted can be put back with "Restore", and the latest edit of a
+// session, visit, patient or doctor profile can be taken back with "Undo".
 // Shared helpers come from core.js; all interface text from i18n.js (use t('key')).
 
 const HIDDEN_FIELDS = ['id', 'created_at', 'updated_at', 'created_by', 'session_id', 'doctor_id', 'role', 'username'];
@@ -8,7 +9,23 @@ const SESSION_FIELDS = ['doctor_id', 'patient_id', 'patient_name', 'location', '
 const VISIT_FIELDS = ['doctor_id', 'patient_id', 'patient_name', 'location', 'location_url', 'session_type', 'appt_date', 'appt_time', 'duration_min', 'notes', 'status'];
 // Only these fields are listed in "what changed" (the rest are internal).
 const SHOWN_FIELDS = ['patient_name', 'location', 'location_url', 'session_date', 'session_time', 'session_type', 'duration_min', 'notes', 'appt_date', 'appt_time',
-  'status', 'doctor_id', 'assigned_doctor_id', 'full_name', 'title', 'specialty', 'phone', 'area', 'bio', 'active', 'condition', 'preferred_date', 'preferred_time', 'address', 'color'];
+  'status', 'doctor_id', 'assigned_doctor_id', 'full_name', 'title', 'specialty', 'phone', 'area', 'bio', 'active', 'condition', 'preferred_date', 'preferred_time', 'address', 'color', 'availability'];
+// Fields "Undo" may put back, per table (visit status stays out: done/cancelled visits have their own rules).
+const UNDO_FIELDS = {
+  sessions: SESSION_FIELDS.filter(k => k !== 'doctor_id'), // a session's doctor can't be changed after it is logged
+  appointments: VISIT_FIELDS.filter(k => k !== 'status'),
+  patients: ['full_name', 'phone', 'condition', 'notes'],
+  profiles: ['full_name', 'title', 'specialty', 'phone', 'area', 'bio', 'active', 'availability'],
+};
+const undoKeys = c => Object.keys(c.new_data || {}).filter(k => (UNDO_FIELDS[c.table_name] || []).includes(k) && JSON.stringify(c.old_data?.[k]) !== JSON.stringify(c.new_data[k]));
+const rowId = c => (c.new_data || c.old_data || {}).id;
+
+// Puts the changed fields back to how they were before this edit.
+async function undoEdit(c) {
+  const patch = Object.fromEntries(undoKeys(c).map(k => [k, c.old_data[k]]));
+  const rows = check(await sb.from(c.table_name).update(patch).eq('id', rowId(c)).select('id'));
+  if (!rows.length) throw new Error(t('hist.undoGone'));
+}
 // A deleted row counts as restored if the same thing was added again afterwards.
 const sameThing = (a, b) => ['doctor_id', 'patient_name', 'session_date', 'session_time', 'appt_date', 'appt_time'].every(k => (a?.[k] ?? null) === (b?.[k] ?? null));
 
@@ -79,6 +96,9 @@ async function historyPage(main) {
     const names = new Map(check(people).map(p => [p.id, p.full_name]));
     const restored = new Set(); // deletions already put back (now, or earlier: the same thing was added again later)
     changes.forEach((c, i) => { if (c.action === 'delete' && changes.slice(0, i).some(x => x.action === 'insert' && x.table_name === c.table_name && sameThing(x.new_data, c.old_data))) restored.add(c.id); });
+    // "Undo" only on the newest change of a row (undoing an older one would wipe out the edits made after it).
+    const undoable = new Set(), seen = new Set();
+    changes.forEach(c => { const key = c.table_name + ':' + rowId(c); if (!seen.has(key) && c.action === 'update' && undoKeys(c).length) undoable.add(c.id); seen.add(key); });
     const box = main.querySelector('#hist');
     if (!changes.length) { box.innerHTML = `<div class="card empty">${t(state.histDeleted ? 'hist.noDeleted' : 'hist.none')}</div>`; return; }
     box.innerHTML = `<div class="card hist-list">${changes.map(c => `
@@ -91,7 +111,7 @@ async function historyPage(main) {
         </div>
         ${c.action === 'delete' && ['sessions', 'appointments'].includes(c.table_name)
           ? (restored.has(c.id) ? `<span class="muted small">✓ ${t('hist.restored')}</span>` : `<button type="button" class="btn ghost sm" data-restore="${c.id}">${t('hist.restore')}</button>`)
-          : '<span></span>'}
+          : undoable.has(c.id) ? `<button type="button" class="btn ghost sm" data-undo="${c.id}">${t('hist.undo')}</button>` : '<span></span>'}
       </div>`).join('')}</div>`;
     box.querySelectorAll('[data-restore]').forEach(b => b.onclick = async () => {
       const c = changes.find(x => x.id == b.dataset.restore);
@@ -99,6 +119,13 @@ async function historyPage(main) {
       if (!await confirmAction({ title: t('hist.restoreQ'), message: t('hist.restoreMsg'), confirm: t('hist.restore'), danger: false })) return;
       b.disabled = true;
       try { await restoreChange(c); restored.add(c.id); b.textContent = '✓ ' + t('hist.restored'); toast(t('hist.restored')); }
+      catch (err) { b.disabled = false; toast(err.message); }
+    });
+    box.querySelectorAll('[data-undo]').forEach(b => b.onclick = async () => {
+      const c = changes.find(x => x.id == b.dataset.undo);
+      if (!await confirmAction({ title: t('hist.undoQ'), message: t('hist.undoMsg'), confirm: t('hist.undo'), danger: false })) return;
+      b.disabled = true;
+      try { await undoEdit(c); toast(t('hist.undone')); load(); }
       catch (err) { b.disabled = false; toast(err.message); }
     });
   };

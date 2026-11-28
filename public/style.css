@@ -163,6 +163,7 @@ tbody tr:hover { background: #f7fafd; }
 .doc-link:focus-visible { outline: none; } .doc:focus-within { outline: 2px solid var(--brand); outline-offset: 2px; }
 .doc-phone { display: grid; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
 .doc-phone bdi { white-space: nowrap; }
+.doc-hours { margin-top: 4px; }
 .doc-phone .ct-btns { display: flex; margin: 0; }
 .doc-phone .ct-btn { flex: 1; justify-content: center; }
 .ct-btns { display: inline-flex; gap: 6px; position: relative; z-index: 1; vertical-align: middle; margin-inline-start: 8px; }

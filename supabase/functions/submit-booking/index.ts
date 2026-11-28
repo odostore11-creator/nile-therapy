@@ -1,8 +1,8 @@
 // Public booking form on niletherapy.org -> a patient request in the portal (source 'website').
 // No login. Protection: strict validation and length limits, a honeypot field, a per-IP rate limit
 // (only a salted hash of the IP is stored), a Cloudflare Turnstile bot check once TURNSTILE_SECRET_KEY is set, the same phone can't book twice within 10 minutes or more than 3 times a day,
-// and a site-wide hourly ceiling. With a map pin, the request is auto-assigned like any other; without one, or during an
-// unusual burst of bookings, it goes to the founders.
+// and a site-wide hourly ceiling. With a map pin (or a place found from the typed area), the request is auto-assigned like
+// any other; without one, or during an unusual burst of bookings, it goes to the founders.
 import { admin, HttpError, serve, str } from '../_shared/common.ts';
 
 const GOVERNORATES = ['Cairo', 'Giza', 'Alexandria', 'Qalyubia', 'Sharqia', 'Dakahlia', 'Gharbia', 'Monufia', 'Beheira', 'Kafr El Sheikh', 'Damietta',
@@ -45,6 +45,24 @@ function coordsFromLink(link: string): [number, number] | null {
   if (!m) return null;
   const lat = +m[1], lng = +m[2];
   return inEgypt(lat, lng) ? [lat, lng] : null;
+}
+/** No pin and no link: look the typed area up on OpenStreetMap (Nominatim), e.g. "nasr city" in Cairo. Only the address text
+ * and governorate are sent (no name or phone). Accepted only if the place is inside the governorate the patient chose,
+ * so a vague or wrong address isn't auto-booked far away; anything else goes to the founders as before. */
+async function coordsFromAddress(address: string, governorate: string): Promise<[number, number] | null> {
+  try {
+    const q = new URLSearchParams({ q: `${address}, ${governorate}, Egypt`, format: 'jsonv2', countrycodes: 'eg', addressdetails: '1', limit: '3', 'accept-language': 'en' });
+    const r = await fetch('https://nominatim.openstreetmap.org/search?' + q, { headers: { 'User-Agent': 'booking-geocoder/1.0' }, signal: AbortSignal.timeout(6000) });
+    if (!r.ok) return null;
+    const list = await r.json() as { lat: string; lon: string; address?: Record<string, string> }[];
+    const gov = governorate.toLowerCase();
+    for (const x of list) {
+      const where = [x.address?.state, x.address?.city, x.address?.county].filter(Boolean).join(' ').toLowerCase();
+      const lat = +x.lat, lng = +x.lon;
+      if (where.includes(gov) && inEgypt(lat, lng)) return [lat, lng];
+    }
+  } catch (e) { console.warn('geocode failed', e); }
+  return null;
 }
 async function sha256(s: string) {
   const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
@@ -93,7 +111,6 @@ serve(async (req, body) => {
     const c = link ? coordsFromLink(link) : null;
     [lat, lng] = c ?? [NaN, NaN];
   }
-  const hasPin = Number.isFinite(lat) && Number.isFinite(lng);
   const ip = req.headers.get('cf-connecting-ip')?.trim() || (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown';
   if (TURNSTILE_SECRET) await checkTurnstile(str(body.turnstile, 2048), ip, m.bot);
 
@@ -117,7 +134,14 @@ serve(async (req, body) => {
   const burst = (siteHour ?? 0) >= BURST_PER_HOUR;
   if (burst) console.warn(`booking burst: ${siteHour} website bookings in the last hour; routing to founders`);
 
-  const notes = [complaint && `Complaint: ${complaint}`, link && `Map: ${link}`, burst ? 'Arrived during an unusual burst of website bookings: check it is real' : '', 'Booked on the website'].filter(Boolean).join(' · ').slice(0, 2000);
+  // Only after the limits above, so a flood can't turn into a flood of map lookups.
+  let fromText = false;
+  if (!burst && !(Number.isFinite(lat) && Number.isFinite(lng))) {
+    const c = await coordsFromAddress(address, governorate);
+    if (c) { [lat, lng] = c; fromText = true; }
+  }
+  const hasPin = Number.isFinite(lat) && Number.isFinite(lng);
+  const notes = [complaint && `Complaint: ${complaint}`, link && `Map: ${link}`, fromText && 'Location estimated from the typed address (area level): confirm the exact place by phone', burst ? 'Arrived during an unusual burst of website bookings: check it is real' : '', 'Booked on the website'].filter(Boolean).join(' · ').slice(0, 2000);
   const autoRoute = hasPin && !burst; // without a pin the request goes to the founders instead of being auto-assigned
   const { data, error } = await admin.rpc('create_patient_request', { p: {
     patient_name: name, phone, address, governorate, lat: autoRoute ? lat : '', lng: autoRoute ? lng : '', preferred_date: date < today ? today : date,

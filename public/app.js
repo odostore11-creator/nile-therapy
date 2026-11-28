@@ -44,8 +44,8 @@ function render() {
 }
 
 // ---------- login ----------
+// One sign-in form for everyone (founders, doctors, partners, the technical team): the account decides where it goes.
 function renderLogin() {
-  const admin = state.loginRole === 'admin', partner = state.loginRole === 'partner';
   $app.innerHTML = `
   <div class="login">
     <section class="login-art">
@@ -62,20 +62,14 @@ function renderLogin() {
       <form class="login-card" id="login">
         <h2>${t('login.title')}</h2>
         <p class="muted">${t('login.help')}</p>
-        <div class="role-switch" role="tablist">
-          <button type="button" role="tab" aria-selected="${admin}" class="${admin ? 'on' : ''}" data-role="admin">${t('role.founder')}</button>
-          <button type="button" role="tab" aria-selected="${state.loginRole === 'doctor'}" class="${state.loginRole === 'doctor' ? 'on' : ''}" data-role="doctor">${t('role.doctor')}</button>
-          <button type="button" role="tab" aria-selected="${partner}" class="${partner ? 'on' : ''}" data-role="partner">${t('role.partner')}</button>
-        </div>
-        <div class="field"><label for="u">${t('login.username')}</label><input id="u" name="username" dir="ltr" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus placeholder="${esc(t(admin ? 'login.ph.admin' : partner ? 'login.ph.partner' : 'login.ph.doctor'))}"></div>
+        <div class="field"><label for="u">${t('login.username')}</label><input id="u" name="username" dir="ltr" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus placeholder="${esc(t('login.ph.doctor'))}"></div>
         <div class="field"><label for="p">${t('login.password')}</label><input id="p" name="password" dir="ltr" type="password" autocomplete="current-password" required></div>
-        <button class="btn block" type="submit">${t(admin ? 'login.go.admin' : partner ? 'login.go.partner' : 'login.go.doctor')}</button>
+        <button class="btn block" type="submit">${t('login.go')}</button>
         <div class="error" id="err" role="alert"></div>
       </form>
     </section>
   </div>`;
   wireLangButtons();
-  $app.querySelectorAll('[data-role]').forEach(b => b.onclick = () => { state.loginRole = b.dataset.role; renderLogin(); });
   document.getElementById('login').onsubmit = async e => {
     e.preventDefault();
     const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true;
@@ -86,10 +80,6 @@ function renderLogin() {
         : /rate limit|too many/i.test(error.message) ? t('err.tooMany') : friendly(error));
       const me = await loadMe();
       if (!me) throw new Error(t('err.accountOff'));
-      if (me.role !== 'tech' && me.role !== state.loginRole) { // picked the wrong tab (the tech account may use either)
-        await sb.auth.signOut({ scope: 'local' });
-        throw new Error(t(me.role === 'admin' ? 'login.wrongTabFounder' : me.role === 'partner' ? 'login.wrongTabPartner' : 'login.wrongTabDoctor'));
-      }
       state.user = me;
       location.hash = me.role === 'admin' ? '#/overview' : me.role === 'tech' ? '' : me.role === 'partner' ? '#/send' : '#/log';
       render();
