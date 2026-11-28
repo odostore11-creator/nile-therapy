@@ -24,6 +24,9 @@ const STRINGS = {
 
     'nav.sessions': 'Sessions', 'nav.doctors': 'Doctors', 'nav.chat': 'My AI room', 'nav.log': 'My sessions',
     'me.password': 'Password', 'me.logout': 'Log out',
+    'pw.askFounders': 'To change your password, ask one of the founders or the technical team. They will give you a new one.',
+    'doc.call': 'Call', 'tabs.doctorLogins': 'Doctor logins',
+    'tech.doctorsHelp': 'Doctors cannot change their own password. When one asks, reset it here and send them the new one privately.',
 
     'pw.title': 'Change password', 'pw.current': 'Current password', 'pw.new': 'New password (8+ characters)',
     'pw.done': 'Password changed',
@@ -546,6 +549,9 @@ const STRINGS = {
 
     'nav.sessions': 'الجلسات', 'nav.doctors': 'الأطباء', 'nav.chat': 'مساعدي الذكي', 'nav.log': 'جلساتي',
     'me.password': 'كلمة المرور', 'me.logout': 'تسجيل الخروج',
+    'pw.askFounders': 'لتغيير كلمة المرور، اطلب ذلك من أحد المؤسسين أو من الفريق التقني، وسيعطونك كلمة مرور جديدة.',
+    'doc.call': 'اتصال', 'tabs.doctorLogins': 'دخول الأطباء',
+    'tech.doctorsHelp': 'لا يستطيع الأطباء تغيير كلمة المرور بأنفسهم. عندما يطلب أحدهم ذلك، أعد تعيينها من هنا وأرسلها له بشكل خاص.',
 
     'pw.title': 'تغيير كلمة المرور', 'pw.current': 'كلمة المرور الحالية', 'pw.new': 'كلمة المرور الجديدة (8 أحرف على الأقل)',
     'pw.done': 'تم تغيير كلمة المرور',

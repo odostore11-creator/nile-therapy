@@ -65,15 +65,32 @@ function techNotesModal() {
   });
 }
 
+// ---------- technical team: doctor logins (reset a password when a doctor asks) ----------
+async function techDoctorsPage(main) {
+  main.innerHTML = `<h1>${t('tabs.doctorLogins')}</h1><p class="muted">${t('tech.doctorsHelp')}</p><div id="dl">${skeleton('rows', 4)}</div>`;
+  let list;
+  try { list = await callFunction('admin-doctors', { action: 'doctor_logins' }); }
+  catch (err) { main.querySelector('#dl').innerHTML = `<div class="card empty">${esc(err.message)}</div>`; return; }
+  main.querySelector('#dl').innerHTML = list.length ? `<div class="card" style="padding:6px 16px">${list.map(d => `<div class="doc-area">
+      <span></span><span><b dir="auto">${esc(d.full_name)}</b> <bdi dir="ltr" class="muted small">@${esc(d.username)}</bdi>${d.active ? '' : ` <span class="pill off">${t('doctors.inactive')}</span>`}</span>
+      <button type="button" class="btn ghost sm" data-reset="${d.id}">${t('profile.reset')}</button></div>`).join('')}</div>` : `<div class="card empty">${t('doctors.none')}</div>`;
+  main.querySelectorAll('[data-reset]').forEach(b => b.onclick = async () => {
+    const d = list.find(x => x.id === b.dataset.reset);
+    if (!await confirmAction({ title: t('confirm.reset', { name: d.full_name }), message: t('confirm.resetMsg'), confirm: t('profile.reset') })) return;
+    try { showCredentials(t('profile.newPw'), await callFunction('admin-doctors', { action: 'reset_password', doctor_id: d.id })); }
+    catch (err) { toast(err.message); }
+  });
+}
+
 // ---------- technical team: its own small page ----------
-const techTab = () => (['partners', 'errors', 'usage', 'commission', 'emails'].includes(route()[0]) ? route()[0] : '');
+const techTab = () => (['partners', 'doctors', 'errors', 'usage', 'commission', 'emails'].includes(route()[0]) ? route()[0] : '');
 function techShell() {
   $app.innerHTML = `<div class="tech-shell">
     <header class="tech-bar">
       <div class="brand"><span class="brand-mark"><img src="logo-mark.png" alt="" width="34" height="34"></span><span><b>Nile Therapy</b><small>${t('notes.techArea')}</small></span></div>
       <div class="row">${langButton()}<button type="button" class="btn ghost" id="pw">${t('me.password')}</button><button type="button" class="btn ghost" id="out">${t('me.logout')}</button></div>
     </header>
-    <nav class="p-tabs" aria-label="${esc(t('nav.menu'))}">${[['', t('notes.techTitle')], ['partners', t('nav.partners')], ['errors', t('tabs.errors')], ['usage', t('tabs.usage')], ['commission', t('tabs.commission')], ['emails', t('tabs.emails')]].map(([k, l]) => `<a href="#/${k}" class="${k === techTab() ? 'on' : ''}" ${k === techTab() ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav>
+    <nav class="p-tabs" aria-label="${esc(t('nav.menu'))}">${[['', t('notes.techTitle')], ['partners', t('nav.partners')], ['doctors', t('tabs.doctorLogins')], ['errors', t('tabs.errors')], ['usage', t('tabs.usage')], ['commission', t('tabs.commission')], ['emails', t('tabs.emails')]].map(([k, l]) => `<a href="#/${k}" class="${k === techTab() ? 'on' : ''}" ${k === techTab() ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav>
     <main class="tech-main" id="main"></main>
   </div>`;
   wireLangButtons();
@@ -83,7 +100,7 @@ function techShell() {
     state.user = null; location.hash = ''; await sb.auth.signOut({ scope: 'local' }); render();
   };
   const main = document.getElementById('main');
-  const draw = { partners: partnersPage, errors: techErrorsPage, usage: techUsagePage, commission: techCommissionPage, emails: techEmailsPage }[techTab()] || techNotesPage;
+  const draw = { partners: partnersPage, doctors: techDoctorsPage, errors: techErrorsPage, usage: techUsagePage, commission: techCommissionPage, emails: techEmailsPage }[techTab()] || techNotesPage;
   setLivePage('tech-' + (techTab() || 'notes'), draw, main);
   trackVisit('tech-' + (techTab() || 'notes'));
   startLive();

@@ -153,7 +153,7 @@ function shell(active, renderPage) {
     if (!await confirmAction({ title: t('confirm.logout'), confirm: t('me.logout') })) return;
     state.user = null; location.hash = ''; await sb.auth.signOut({ scope: 'local' }); render(); // only this device
   };
-  document.getElementById('pw').onclick = passwordModal;
+  document.getElementById('pw').onclick = u.role === 'doctor' ? askForPasswordModal : passwordModal;
   const pageEl = document.getElementById('main');
   pageEl.classList.add('page-in');
   setLivePage(active, renderPage, pageEl); // live updates redraw this page when something changes
@@ -222,7 +222,12 @@ function showInstallTip() {
   slot.querySelector('.tip-close').onclick = () => { try { localStorage.setItem('nt_install_tip', 'no'); } catch { /* fine */ } slot.innerHTML = ''; };
 }
 
+function askForPasswordModal() {
+  modal(`<h2>${t('pw.title')}</h2><p>${t('pw.askFounders')}</p>
+    <div class="actions"><button class="btn" data-close>${t('common.done')}</button></div>`);
+}
 function passwordModal() {
+  if (state.user?.role === 'doctor') return askForPasswordModal();
   modal(`<h2>${t('pw.title')}</h2>
     <form id="pwf">
       <div class="field"><label>${t('pw.current')}</label><input name="current" dir="ltr" type="password" required autocomplete="current-password"></div>

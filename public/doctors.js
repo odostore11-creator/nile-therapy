@@ -29,6 +29,16 @@ function showCredentials(title, { username, password }, intro = t('creds.intro')
   });
 }
 
+// Call + WhatsApp buttons for a doctor's phone ('' when there is no usable number).
+function contactButtons(name, phone) {
+  const num = waNumber(phone);
+  if (!num) return '';
+  return `<span class="ct-btns">
+    <a class="ct-btn call" href="tel:+${num}" aria-label="${esc(t('tech.call', { name }))}" title="${esc(t('tech.call', { name }))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg><span>${t('doc.call')}</span></a>
+    <a class="ct-btn wa" href="https://wa.me/${num}" target="_blank" rel="noopener noreferrer" aria-label="${esc(t('tech.wa', { name }))}" title="${esc(t('tech.wa', { name }))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.5c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3Z"/></svg><span>WhatsApp</span></a>
+  </span>`;
+}
+
 async function doctorsPage(main) {
   main.innerHTML = `<div class="head"><div><h1>${t('doctors.title')}</h1><p class="muted">${t('doctors.sub')}</p></div><button class="btn" id="add">${t('doctors.add')}</button></div><div id="grid" class="doc-grid"></div>`;
   const load = async () => {
@@ -37,13 +47,13 @@ async function doctorsPage(main) {
     try { doctors = await listDoctors(); }
     catch (err) { main.querySelector('#grid').innerHTML = `<div class="card empty">${esc(err.message)}</div>`; return; }
     main.querySelector('#grid').innerHTML = doctors.length ? doctors.map(d => `
-      <button class="card doc" data-id="${d.id}">
+      <div class="card doc">
         <div class="doc-top"><div class="avatar">${esc(initials(d.full_name))}</div>
-          <div><h3 dir="auto">${esc(d.full_name)}</h3><div class="muted small" dir="auto">${esc(d.specialty || d.title)}</div></div></div>
+          <div><h3 dir="auto"><a class="doc-link" href="#/doctors/${d.id}">${esc(d.full_name)}</a></h3><div class="muted small" dir="auto">${esc(d.specialty || d.title)}</div></div></div>
         <div class="muted small" style="margin-bottom:12px"><span dir="auto">${esc(d.area || '—')}</span> ${d.active ? '' : `<span class="pill off">${t('doctors.inactive')}</span>`}</div>
         <div class="doc-nums"><div><b>${d.stats.total}</b><span>${t('doctors.n.sessions')}</span></div><div><b>${d.stats.this_month || 0}</b><span>${t('doctors.n.month')}</span></div><div><b>${d.stats.patients}</b><span>${t('doctors.n.patients')}</span></div></div>
-      </button>`).join('') : `<div class="card empty">${t('doctors.none')}</div>`;
-    main.querySelectorAll('[data-id]').forEach(b => b.onclick = () => location.hash = `#/doctors/${b.dataset.id}`);
+        ${d.phone ? `<div class="doc-phone"><bdi dir="ltr" class="muted small">${esc(d.phone)}</bdi>${contactButtons(d.full_name, d.phone)}</div>` : ''}
+      </div>`).join('') : `<div class="card empty">${t('doctors.none')}</div>`;
   };
   main.querySelector('#add').onclick = () => modal(`<h2>${t('doctors.addTitle')}</h2><form>${doctorFormHtml()}<div class="error" role="alert"></div>
       <div class="actions"><button type="button" class="btn ghost" data-close>${t('common.cancel')}</button><button class="btn">${t('doctors.create')}</button></div></form>`, (m, close) => {
@@ -72,7 +82,7 @@ async function doctorProfile(main, id) {
             <dt>${t('doc.username')}</dt><dd><bdi dir="ltr">@${esc(d.username)}</bdi></dd>
             <dt>${t('doc.specialty')}</dt><dd dir="auto">${esc(d.specialty || '—')}</dd>
             <dt>${t('doc.area')}</dt><dd dir="auto">${esc(d.area || '—')}</dd>
-            <dt>${t('doc.phone')}</dt><dd><bdi dir="ltr">${esc(d.phone || '—')}</bdi></dd>
+            <dt>${t('doc.phone')}</dt><dd><bdi dir="ltr">${esc(d.phone || '—')}</bdi>${contactButtons(d.full_name, d.phone)}</dd>
             <dt>${t('profile.joined')}</dt><dd>${fmtDate(d.created_at.slice(0, 10))}</dd>
             <dt>${t('profile.last')}</dt><dd>${fmtDate(d.stats.last_session)}</dd>
           </dl>

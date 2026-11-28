@@ -1,6 +1,7 @@
 // Admin actions that need the secret key:
 //   { action: 'create', username, full_name, title?, specialty?, phone?, area?, bio? } -> { id, username, password }   founders
-//   { action: 'reset_password', doctor_id }                                           -> { username, password }       founders
+//   { action: 'reset_password', doctor_id }                                           -> { username, password }       founders + tech team
+//   { action: 'doctor_logins' }                        -> [{ id, full_name, username, active }]                     founders + tech team
 //   { action: 'create_partner', username, full_name, kind?, organization?, contact_person?, phone?, email?,
 //              governorate?, address?, notes? }                                      -> { id, username, password }   founders + tech team
 //   { action: 'reset_partner_password', partner_id }                                  -> { username, password }       founders + tech team
@@ -70,6 +71,16 @@ serve(async (req, body) => {
     return { id, username, password };
   }
 
+  // Doctors can't change their own password: they ask a founder or the technical team, who reset it here.
+  if (body.action === 'reset_password' || body.action === 'doctor_logins') {
+    await requireFounderOrTech(req);
+    if (body.action === 'reset_password') return resetPassword(str(body.doctor_id, 64), 'doctor', 'Doctor not found');
+    const { data, error } = await admin.from('profiles').select('id, full_name, username, active').eq('role', 'doctor')
+      .order('active', { ascending: false }).order('full_name');
+    if (error) { console.error(error); throw new HttpError(500, 'Could not load doctors'); }
+    return data;
+  }
+
   await requireFounder(req);
 
   if (body.action === 'create') {
@@ -83,8 +94,6 @@ serve(async (req, body) => {
     });
     return { id, username, password };
   }
-
-  if (body.action === 'reset_password') return resetPassword(str(body.doctor_id, 64), 'doctor', 'Doctor not found');
 
   throw new HttpError(400, 'Unknown action');
 });
